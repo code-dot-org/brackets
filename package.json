@@ -1,17 +1,16 @@
 {
-    "name": "Brackets",
-    "version": "1.4.0-0",
-    "apiVersion": "1.4.0",
-    "homepage": "https://mozillathimblelivepreview.net/bramble/staging/dist/hosted.html",
-    "issues": {
-        "url": "http://github.com/mozilla/brackets/issues"
-    },
+    "name": "@code-dot-org/bramble",
+    "version": "0.1.1",
+    "homepage": "https://github.com/code-dot-org/bramble",
     "repository": {
         "type": "git",
-        "url": "https://github.com/mozilla/brackets.git",
+        "url": "https://github.com/code-dot-org/bramble.git",
         "branch": "",
         "SHA": ""
     },
+    "files": [
+        "dist"
+    ],
     "dependencies": {
         "autoprefixer-core": "5.1.8",
         "aws-sdk": "^2.2.9",
@@ -60,7 +59,6 @@
     },
     "scripts": {
         "localize": "node scripts/properties2js",
-        "postinstall": "grunt install",
         "build": "grunt build-browser",
         "preproduction": "grunt build-browser-compressed && grunt unlocalize",
         "production": "npm start",
