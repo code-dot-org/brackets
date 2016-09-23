@@ -97,6 +97,7 @@ define(function (require, exports, module) {
         FileIndex       = require("filesystem/FileIndex"),
         FileSystemError = require("filesystem/FileSystemError"),
         WatchedRoot     = require("filesystem/WatchedRoot"),
+        FileSystemCache = require("filesystem/impls/filer/FileSystemCache"),
         EventDispatcher = require("utils/EventDispatcher");
     
     /**
@@ -799,6 +800,14 @@ define(function (require, exports, module) {
      */
     FileSystem.prototype._handleExternalChange = function (path, stat) {
 
+        function refreshCache() {
+            FileSystemCache.refresh(function(err) {
+                if (err) {
+                    console.warn("[Bramble] unable to preload all filesystem Blob URLs", err);
+                }
+            });
+        }
+        
         if (!path) {
             // This is a "wholesale" change event; clear all caches
             this._index.visitAll(function (entry) {
@@ -806,11 +815,12 @@ define(function (require, exports, module) {
                 entry._clearCachedData(true);
             });
             
+            refreshCache();
             this._fireChangeEvent(null);
             return;
         }
         
-        path = this._normalizePath(path, false);
+        path = this._normalizePath(path, stat.isDirectory);
         
         var entry = this._index.getEntry(path);
         if (entry) {
@@ -820,6 +830,7 @@ define(function (require, exports, module) {
                 if (!(stat && oldStat && stat.mtime.getTime() === oldStat.mtime.getTime())) {
                     entry._clearCachedData();
                     entry._stat = stat;
+                    refreshCache();
                     this._fireChangeEvent(entry);
                 }
             } else {
@@ -829,6 +840,7 @@ define(function (require, exports, module) {
                     // We send a change even if added & removed are both zero-length. Something may still have changed,
                     // e.g. a file may have been quickly removed & re-added before we got a chance to reread the directory
                     // listing.
+                    refreshCache();
                     this._fireChangeEvent(entry, added, removed);
                 }.bind(this));
             }
