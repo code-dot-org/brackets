@@ -31,6 +31,10 @@ define(function (require, exports, module) {
      * for bramble to be loaded
      */
     function initUI(callback) {
+        // The FileSystemCache is ready - refresh in case the editor views
+        // loaded before the cached blobs were created
+        MainViewManager.refreshCurrentPaneViews();
+
         addLivePreviewButton(function() {
             toggleMobileViewButton();
 

@@ -305,6 +305,17 @@ define(function (require, exports, module) {
         
         return null;
     }
+
+    /**
+     * Refresh the current view in all of the panes
+     */
+    function refreshCurrentPaneViews() {
+        _.forEach(_panes, function (pane) {
+            if (pane._currentView) {
+                pane._currentView.refresh();
+            }
+        });
+    }
     
     /**
      * Focuses the current pane. If the current pane has a current view, then the pane will focus the view.
@@ -1743,6 +1754,7 @@ define(function (require, exports, module) {
     
     exports.getAllOpenFiles               = getAllOpenFiles;
     exports.focusActivePane               = focusActivePane;
+    exports.refreshCurrentPaneViews       = refreshCurrentPaneViews;
     
     // Layout
     exports.setLayoutScheme               = setLayoutScheme;
