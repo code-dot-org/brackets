@@ -307,6 +307,9 @@ define(function (require, exports, module) {
                 }
 
                 callback(null, result.stat, result.created);
+            }, function(err) {
+                callback(FileSystemError.UNKNOWN);
+                return;
             });
         }
 
