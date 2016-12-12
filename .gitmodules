@@ -43,3 +43,6 @@
 [submodule "src/thirdparty/jszip"]
 	path = src/thirdparty/jszip
 	url = https://github.com/Stuk/jszip.git
+[submodule "filer"]
+	path = src/thirdparty/filer
+	url = git@github.com:code-dot-org/filer.git
