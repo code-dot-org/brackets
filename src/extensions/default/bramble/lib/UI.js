@@ -93,6 +93,13 @@ define(function (require, exports, module) {
             PreferencesManager.set("wordWrap", wordWrap);
         }
 
+        var readOnly = BrambleStartupState.ui("readOnly");
+        if(typeof readOnly === "boolean") {
+            PreferencesManager.set("readOnly", readOnly);
+        } else if (typeof readOnly === "string") {
+            PreferencesManager.set("readOnly", readOnly.toLowerCase() === "true");
+        }
+
         var sidebarWidth = BrambleStartupState.ui("sidebarWidth");
         if(sidebarWidth) {
             SidebarView.resize(sidebarWidth);

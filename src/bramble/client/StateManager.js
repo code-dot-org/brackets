@@ -51,12 +51,17 @@ define(function() {
         return str|0;
     }
 
-    function StateManager(disableStorage) {
+    function StateManager(disableStorage, initialUIState) {
         var storage;
         if(disableStorage) {
             // Wipe any data we have in storage now and use memory
             localStorage.clear();
             storage = memoryStorage;
+            for (var key in initialUIState) {
+                if (initialUIState.hasOwnProperty(key)) {
+                    storage.setItem(prefix(key), initialUIState[key]);
+                }
+            }
         } else {
             storage = localStorage;
         }
@@ -97,6 +102,10 @@ define(function() {
             fullPath: {
                 get: function()  { return getString(storage, "fullPath"); },
                 set: function(v) { storage.setItem(prefix("fullPath"), v); }
+            },
+            readOnly: {
+                get: function()  { return getString(storage, "readOnly"); },
+                set: function(v) { storage.setItem(prefix("readOnly"), v); }
             },
             wordWrap: {
                 get: function()  { return getBool(storage, "wordWrap"); },

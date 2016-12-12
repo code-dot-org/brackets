@@ -187,6 +187,7 @@ define(function (require, exports, module) {
             firstPaneWidth: data.state.firstPaneWidth,
             secondPaneWidth: data.state.secondPaneWidth,
             previewMode: data.state.previewMode,
+            readOnly: data.state.readOnly,
             wordWrap: data.state.wordWrap
         });
 

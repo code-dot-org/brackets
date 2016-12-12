@@ -182,7 +182,7 @@ define([
         var _allowArrayBufferTransfer;
 
         // State info for UI
-        var _state = new StateManager(options.disableUIState);
+        var _state = new StateManager(options.disableUIState, options.initialUIState);
 
         // The project root dir that Bramble mounted
         var _root;
@@ -412,6 +412,7 @@ define([
                                     firstPaneWidth: _state.firstPaneWidth,
                                     secondPaneWidth: _state.secondPaneWidth,
                                     previewMode: _state.previewMode,
+                                    readOnly: _state.readOnly,
                                     wordWrap: _state.wordWrap
                                 }
                             };
