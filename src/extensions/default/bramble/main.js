@@ -191,6 +191,16 @@ define(function (require, exports, module) {
             wordWrap: data.state.wordWrap
         });
 
+        // Immediately set readOnly in PreferencesManager. If we wait for
+        // restoreState(), it is too late as a document will already have been
+        // opened.
+        var readOnly = BrambleStartupState.ui("readOnly");
+        if(typeof readOnly === "boolean") {
+            PreferencesManager.set("readOnly", readOnly);
+        } else if (typeof readOnly === "string") {
+            PreferencesManager.set("readOnly", readOnly.toLowerCase() === "true");
+        }
+
         RemoteEvents.start();
         loadProject();
     }
