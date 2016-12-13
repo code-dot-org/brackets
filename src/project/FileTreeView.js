@@ -40,7 +40,8 @@ define(function (require, exports, module) {
         LanguageManager   = require("language/LanguageManager"),
         FileTreeViewModel = require("project/FileTreeViewModel"),
         ViewUtils         = require("utils/ViewUtils"),
-        KeyEvent          = require("utils/KeyEvent");
+        KeyEvent          = require("utils/KeyEvent"),
+        PreferencesManager = require("preferences/PreferencesManager");
 
     var DOM = React.DOM;
 
@@ -457,7 +458,7 @@ define(function (require, exports, module) {
                 'context-node': this.props.entry.get("context")
             });
 
-            if (this.props.entry.get("rename")) {
+            if (this.props.entry.get("rename") && !PreferencesManager.get("readOnly")) {
                 nameDisplay = fileRenameInput({
                     actions: this.props.actions,
                     entry: this.props.entry,
@@ -843,7 +844,7 @@ define(function (require, exports, module) {
             });
         }
     }));
-    
+
     /**
      * On Windows and Linux, the selection bar in the tree does not extend over the scroll bar.
      * The selectionExtension sits on top of the scroll bar to make the selection bar appear to span the
@@ -985,7 +986,7 @@ define(function (require, exports, module) {
                     forceRender: this.props.forceRender,
                     platform: this.props.platform
                 });
-            
+
             return DOM.div(
                 null,
                 selectionBackground,
