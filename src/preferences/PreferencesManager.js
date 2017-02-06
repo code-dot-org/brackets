@@ -161,7 +161,10 @@ define(function (require, exports, module) {
      */
     function savePreferences() {
         // save all preferences
-        persistentStorage.setItem(preferencesKey, JSON.stringify(prefStorage));
+        try {
+            persistentStorage.setItem(preferencesKey, JSON.stringify(prefStorage));
+        } catch(e) {
+        }
     }
 
     /**
@@ -173,7 +176,7 @@ define(function (require, exports, module) {
 
         // Note that storage.clear() is not used. Production and unit test code
         // both rely on the same backing storage but unique item keys.
-        persistentStorage.setItem(preferencesKey, JSON.stringify(prefStorage));
+        savePreferences();
     }
 
     /**
