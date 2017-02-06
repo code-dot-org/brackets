@@ -71,7 +71,6 @@ define(function (require, exports, module) {
         "hsb": true,
         "hi-in": true,
         "es-cl": true,
-        "en-gb": true,
         "dsb": true
     };
 });
