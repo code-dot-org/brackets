@@ -1321,6 +1321,15 @@ define(function (require, exports, module) {
     renameItemInline = function (entry) {
         var d = new $.Deferred();
 
+        var path = entry;
+        if (entry.fullPath) {
+            path = entry.fullPath;
+        }
+        var blockedPath = getProjectRoot().fullPath + 'index.html';
+        if (path.toLowerCase() === blockedPath.toLowerCase()) {
+            return d.reject(new Error("File can't be renamed")).promise();
+        }
+
         model.startRename(entry)
             .done(function () {
                 d.resolve();

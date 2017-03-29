@@ -1492,6 +1492,10 @@ define(function (require, exports, module) {
             entry = MainViewManager.getCurrentlyViewedFile();
         }
         if (entry) {
+            var blockedPath = ProjectManager.getProjectRoot().fullPath + 'index.html';
+            if (entry.fullPath.toLowerCase() === blockedPath.toLowerCase()) {
+                return;
+            }
             ProjectManager.renameItemInline(entry);
         }
     }
@@ -1566,6 +1570,10 @@ define(function (require, exports, module) {
     /** Delete file command handler  **/
     function handleFileDelete() {
         var entry = ProjectManager.getSelectedItem();
+        var blockedPath = ProjectManager.getProjectRoot().fullPath + 'index.html';
+        if (entry.fullPath.toLowerCase() === blockedPath.toLowerCase()) {
+            return;
+        }
         // XXXBramble: always prompt, needs updated l10n
         Dialogs.showModalDialog(
             DefaultDialogs.DIALOG_ID_EXT_DELETED,

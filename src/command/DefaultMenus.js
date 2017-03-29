@@ -242,7 +242,8 @@ define(function (require, exports, module) {
 
         var project_cmenu = Menus.registerContextMenu(Menus.ContextMenuIds.PROJECT_MENU);
         project_cmenu.addMenuItem(Commands.FILE_NEW);
-        project_cmenu.addMenuItem(Commands.FILE_NEW_FOLDER);
+// CDO-Bramble: not something we want
+//        project_cmenu.addMenuItem(Commands.FILE_NEW_FOLDER);
         project_cmenu.addMenuItem(Commands.FILE_RENAME);
         project_cmenu.addMenuItem(Commands.FILE_DELETE);
 // XXXBramble: not something we want to support at the moment/ever
