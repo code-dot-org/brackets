@@ -20,18 +20,18 @@ li.jstree-leaf>a {
 }
 li.jstree-leaf>a>span {
 	font-size: 15px;
-	color: #666666;
+	color: #dddddd;
 }
 li.jstree-open>a>span {
 	font-size: 15px;
-	color: #666666;
+	color: #dddddd;
 }
 li.jstree-closed>a>span {
 	font-size: 15px;
-	color: #666666;
+	color: #dddddd;
 }
 li.jstree-leaf>a>span.extension {
-	color: #666666;
+	color: #dddddd;
 }
 
 .filetree-selection {

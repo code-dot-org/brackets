@@ -99,8 +99,8 @@ define(function (require, exports, module) {
         // Make the spaceUnits and tabSize consistent
         PreferencesManager.set("spaceUnits", 2);
         PreferencesManager.set("tabSize", 2);
-        // Allows the closeTags to indent consistently
-        PreferencesManager.set("closeTags", true);
+        // code.org: Disable closeTags
+        PreferencesManager.set("closeTags", false);
         // Don't warn about opening file in split view (we steal second view for iframe)
         PreferencesManager.setViewState("splitview.multipane-info", true);
 
