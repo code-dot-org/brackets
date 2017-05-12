@@ -333,11 +333,11 @@ define(function (require, exports, module) {
         // Prevent the browser context menu since Brackets creates a custom context menu
         // CDO-Bramble: disabling editor context menus so we can use native context menu with cut/copy/paste
         $(window).contextmenu(function (e) {
-          if ($(e.target).parents(".CodeMirror").length !== 0) {
-            Menus.closeAll();
-          } else {
-            e.preventDefault();
-          }
+            if ($(e.target).parents(".CodeMirror").length !== 0) {
+                Menus.closeAll();
+            } else {
+                e.preventDefault();
+            }
         });
 
         /*
