@@ -254,6 +254,8 @@ define(function (require, exports, module) {
 //        project_cmenu.addMenuDivider();
 //        project_cmenu.addMenuItem(Commands.FILE_REFRESH);
 
+// CDO-Bramble: disabling editor context menus so we can use native context menu with cut/copy/paste
+/*
         var editor_cmenu = Menus.registerContextMenu(Menus.ContextMenuIds.EDITOR_MENU);
         // editor_cmenu.addMenuItem(Commands.NAVIGATE_JUMPTO_DEFINITION);
         editor_cmenu.addMenuItem(Commands.TOGGLE_QUICK_EDIT);
@@ -266,12 +268,15 @@ define(function (require, exports, module) {
         inline_editor_cmenu.addMenuDivider();
         inline_editor_cmenu.addMenuItem(Commands.QUICK_EDIT_PREV_MATCH);
         inline_editor_cmenu.addMenuItem(Commands.QUICK_EDIT_NEXT_MATCH);
+*/
 
         /**
          * Context menu for code editors (both full-size and inline)
          * Auto selects the word the user clicks if the click does not occur over
          * an existing selection
          */
+// CDO-Bramble: disabling editor context menus so we can use native context menu with cut/copy/paste
+/*
         $("#editor-holder").on("contextmenu", function (e) {
             require(["editor/EditorManager"], function (EditorManager) {
                 if ($(e.target).parents(".CodeMirror-gutter").length !== 0) {
@@ -308,6 +313,7 @@ define(function (require, exports, module) {
                 }
             });
         });
+*/
 
         /**
          * Context menu for folder tree
@@ -325,8 +331,13 @@ define(function (require, exports, module) {
         Menus.ContextMenu.assignContextMenuToSelector(".working-set-splitview-btn", splitview_menu);
 
         // Prevent the browser context menu since Brackets creates a custom context menu
+        // CDO-Bramble: disabling editor context menus so we can use native context menu with cut/copy/paste
         $(window).contextmenu(function (e) {
+          if ($(e.target).parents(".CodeMirror").length !== 0) {
+            Menus.closeAll();
+          } else {
             e.preventDefault();
+          }
         });
 
         /*
