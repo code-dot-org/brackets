@@ -315,9 +315,6 @@
     "navigate.newRule":  [
         "Ctrl-Alt-N"
     ],
-    "file.rename":  [
-        "F2"
-    ],
     "help.support": [
         "F1"
     ]
