@@ -225,7 +225,7 @@ define(function (require, exports, module) {
         });
         
         $sidebar.on("panelResizeUpdate", function (evt, width) {
-            $sidebar.find(".sidebar-selection").width(width);
+            $sidebar.find(".filetree-selection").width(width);
             ProjectManager._setFileTreeSelectionWidth(width);
         });
         

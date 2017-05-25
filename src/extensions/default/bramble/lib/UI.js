@@ -48,10 +48,12 @@ define(function (require, exports, module) {
                     removeRightSideToolBar();
                     removeStatusBar();
 
+                    /* XXX cdo disabled
                     // If there's only 1 file in the project, hide the sidebar
                     if(contents && contents.length === 1) {
                         SidebarView.hide();
                     }
+                    */
                 }
 
                 // Restore any UI defaults cached in the client
