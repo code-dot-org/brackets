@@ -1345,8 +1345,8 @@ define(function (require, exports, module) {
                         var errString = errorInfo.type === FileSystemError.ALREADY_EXISTS ?
                                 Strings.FILE_EXISTS_ERR :
                                 FileUtils.getFileErrorString(errorInfo.type);
-
-                        _showErrorDialog(ERR_TYPE_RENAME, errorInfo.isFolder, errString, errorInfo.fullPath);
+                        var filename = makeProjectRelativeIfPossible(errorInfo.fullPath);
+                        _showErrorDialog(ERR_TYPE_RENAME, errorInfo.isFolder, errString, filename);
                     }
                 }, 10);
                 d.reject(errorInfo);

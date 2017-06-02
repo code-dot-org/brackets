@@ -275,6 +275,7 @@ define(function (require, exports, module) {
     
     /**
      * Get the name of a file or a directory, removing any preceding path.
+     * Will ignore a trailing slash at the end of the path.
      * @param {string} fullPath full path to a file or directory
      * @return {string} Returns the base name of a file or the name of a
      * directory
@@ -286,6 +287,19 @@ define(function (require, exports, module) {
         } else {
             return fullPath.slice(lastSlash + 1);
         }
+    }
+    
+    /**
+     * Get the name of a file or a directory, removing any preceding path.
+     * Will NOT ignore a trailing slash at the end of the path, and will return
+     * an empty string in that case.
+     * @param {string} fullPath full path to a file or directory
+     * @return {string} Returns the base name of a file or the name of a
+     * directory
+     */
+    function getBaseNameDontIgnoreTrailingSlash(fullPath) {
+        var lastSlash = fullPath.lastIndexOf("/");
+        return fullPath.slice(lastSlash + 1);
     }
     
     /**
@@ -539,4 +553,5 @@ define(function (require, exports, module) {
     exports.comparePaths                   = comparePaths;
     exports.MAX_FILE_SIZE                  = MAX_FILE_SIZE;
     exports.encodeFilePath                 = encodeFilePath;
+    exports.getBaseNameDontIgnoreTrailingSlash = getBaseNameDontIgnoreTrailingSlash;
 });

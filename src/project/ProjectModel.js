@@ -825,7 +825,7 @@ define(function (require, exports, module) {
             deferred: d,
             type: FILE_RENAMING,
             path: path,
-            newName: FileUtils.getBaseName(path)
+            newName: FileUtils.getBaseNameDontIgnoreTrailingSlash(path)
         };
         return d.promise();
     };
@@ -880,7 +880,7 @@ define(function (require, exports, module) {
 
         if (oldName === newName) {
             result.resolve();
-        } else if (!isValidFilename(FileUtils.getBaseName(newName), _invalidChars)) {
+        } else if (!isValidFilename(FileUtils.getBaseNameDontIgnoreTrailingSlash(newName), _invalidChars)) {
             result.reject(ERROR_INVALID_FILENAME);
         } else {
             var entry = isFolder ? FileSystem.getDirectoryForPath(oldName) : FileSystem.getFileForPath(oldName);

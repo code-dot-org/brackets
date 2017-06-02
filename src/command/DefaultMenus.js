@@ -35,7 +35,10 @@ define(function (require, exports, module) {
         Commands           = require("command/Commands"),
         Menus              = require("command/Menus"),
         Strings            = require("strings"),
-        PreferencesManager = require("preferences/PreferencesManager");
+        PreferencesManager = require("preferences/PreferencesManager"),
+        CommandManager     = require("command/CommandManager"),
+        ProjectManager     = require("project/ProjectManager"),
+        MainViewManager    = require("view/MainViewManager");
 
     AppInit.htmlReady(function () {
         /*
@@ -320,6 +323,27 @@ define(function (require, exports, module) {
          */
         $("#project-files-container").on("contextmenu", function (e) {
             if (!PreferencesManager.get("readOnly")) {
+                var blockedFileSelected = false;
+                var entry = ProjectManager.getContext();
+                if (!entry) {
+                    // Else use current file (not selected in ProjectManager if not visible in tree or workingset)
+                    entry = MainViewManager.getCurrentlyViewedFile();
+                }
+                if (entry) {
+                    var blockedPath = ProjectManager.getProjectRoot().fullPath + 'index.html';
+                    if (entry.fullPath.toLowerCase() === blockedPath.toLowerCase()) {
+                        blockedFileSelected = true;
+                    }
+                }
+
+                var renameCommand = CommandManager.get(Commands.FILE_RENAME);
+                if (renameCommand) {
+                    renameCommand.setEnabled(!blockedFileSelected);
+                }                
+                var deleteCommand = CommandManager.get(Commands.FILE_DELETE);
+                if (deleteCommand) {
+                    deleteCommand.setEnabled(!blockedFileSelected);
+                }
                 project_cmenu.open(e);
             }
         });
