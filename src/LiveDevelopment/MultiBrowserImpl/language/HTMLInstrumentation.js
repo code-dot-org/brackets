@@ -323,7 +323,7 @@ define(function (require, exports, module) {
         } else {
             // If the tag has changed between the previous DOM and the new one, we assign a new ID
             // so that the old tag will be deleted and the new one inserted.
-            var oldNode = this.previousDOM.nodeMap[currentTagID];
+            var oldNode = this.previousDOM ? this.previousDOM.nodeMap[currentTagID] : null;
             if (!oldNode || oldNode.tag !== newTag.tag) {
                 currentTagID = this.getNewID();
             }
@@ -529,7 +529,7 @@ define(function (require, exports, module) {
         }
         
         // see if it makes sense to edit DOM or reload the page
-        if (HTMLDOMDiff.shouldReload(result.oldSubtree, result.newSubtree)) {
+        if (!result.oldSubtree || HTMLDOMDiff.shouldReload(result.oldSubtree, result.newSubtree)) {
             return {
                 dom: result.newDOM,
                 reload: true,
