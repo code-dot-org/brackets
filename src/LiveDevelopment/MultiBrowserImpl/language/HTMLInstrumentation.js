@@ -92,7 +92,7 @@ define(function (require, exports, module) {
             _cachedValues[newName] = _cachedValues[oldName];
             delete _cachedValues[oldName];
         }
-    };
+    }
     
     /**
      * @private
