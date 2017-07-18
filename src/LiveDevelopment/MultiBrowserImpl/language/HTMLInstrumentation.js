@@ -78,6 +78,21 @@ define(function (require, exports, module) {
             document.off(".htmlInstrumentation");
         }
     }
+
+    /**
+     * @private
+     * Modifies the cached information (DOM, timestamp, etc.) used by HTMLInstrumentation
+     * for the given document from the old path to the new path.
+     * @param {$.Event} event (unused)
+     * @param {string} oldName
+     * @param {string} newName
+     */
+    function _fileNameChangeHandler(event, oldName, newName) {
+        if (_cachedValues.hasOwnProperty(oldName)) {
+            _cachedValues[newName] = _cachedValues[oldName];
+            delete _cachedValues[oldName];
+        }
+    };
     
     /**
      * @private
@@ -677,6 +692,7 @@ define(function (require, exports, module) {
     }
     
     DocumentManager.on("beforeDocumentDelete", _removeDocFromCache);
+    DocumentManager.on("fileNameChange",  _fileNameChangeHandler);
     
     /**
      * Parses the document, returning an HTMLSimpleDOM structure and caching it as the
