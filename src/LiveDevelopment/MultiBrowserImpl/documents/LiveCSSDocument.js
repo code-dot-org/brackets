@@ -96,7 +96,7 @@ define(function LiveCSSDocumentModule(require, exports, module) {
     LiveCSSDocument.prototype._updateBrowser = function () {
         var i;
         for (i = 0; i < this.roots.length; i++) {
-            if (this.doc.url !== this.roots[i].toString()) {
+            if (this.doc.url !== encodeURI(this.roots[i].toString())) {
                 // if it's not directly included through <link>,
                 // reload the original doc
                 this.trigger("updateDoc", this.roots[i]);
