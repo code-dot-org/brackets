@@ -30,6 +30,8 @@ define(function (require, exports, module) {
         if(!path) {
             return;
         }
+        
+        path = decodeURI(path);
 
         var currentDoc = LiveDevMultiBrowser._getCurrentLiveDoc();
         if(!currentDoc) {
