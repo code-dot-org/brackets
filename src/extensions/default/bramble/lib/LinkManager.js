@@ -16,7 +16,18 @@ define(function (require, exports, module) {
 
     function getNavigationPath(message) {
         var match = message.match(/^bramble-navigate\:(.+)/);
-        return match && match[1];
+        var navPath = match && match[1];
+        // TODO (Brad 2017-09-28): Replace with a complete fix.
+        // Partial support for links with anchors or queryparams - strip the
+        // anchor and queryparam portions of the URL entirely, allowing at
+        // least the navigation to succeed (where before we hit an error and
+        // took no action at all).
+        // The long-term solution is probably a change in LinkManagerRemote.js
+        // that handles anchors after successful navigation.
+        if (navPath) {
+            navPath = navPath.replace(/[#?].*$/, '');
+        }
+        return navPath;
     }
 
     // Whether or not this message is a navigation request from the LinkManagerRemote script.
