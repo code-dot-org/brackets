@@ -546,7 +546,7 @@ define(function (require, exports, module) {
                     // change page in browser
                     var navigatePath = doc.file.fullPath;
                     if (doc.file.fragment) {
-                      navigatePath = navigatePath + doc.file.fragment;
+                        navigatePath = navigatePath + doc.file.fragment;
                     }
                     _protocol.navigate(_server.pathToUrl(navigatePath));
                 }
