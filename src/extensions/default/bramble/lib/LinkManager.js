@@ -17,16 +17,6 @@ define(function (require, exports, module) {
     function getNavigationPath(message) {
         var match = message.match(/^bramble-navigate\:(.+)/);
         var navPath = match && match[1];
-        // TODO (Brad 2017-09-28): Replace with a complete fix.
-        // Partial support for links with anchors or queryparams - strip the
-        // anchor and queryparam portions of the URL entirely, allowing at
-        // least the navigation to succeed (where before we hit an error and
-        // took no action at all).
-        // The long-term solution is probably a change in LinkManagerRemote.js
-        // that handles anchors after successful navigation.
-        if (navPath) {
-            navPath = navPath.replace(/[#?].*$/, '');
-        }
         return navPath;
     }
 
@@ -41,7 +31,7 @@ define(function (require, exports, module) {
         if(!path) {
             return;
         }
-        
+
         path = decodeURI(path);
 
         var currentDoc = LiveDevMultiBrowser._getCurrentLiveDoc();
@@ -52,12 +42,20 @@ define(function (require, exports, module) {
         var currentDir = Path.dirname(currentDoc.doc.file.fullPath);
         path = Path.resolve(currentDir, path);
 
+        var fragmentIndex = path.indexOf("#");
+        var fragment;
+        if (fragmentIndex !== -1) {
+            fragment = path.substr(fragmentIndex);
+            path = path.substr(0, fragmentIndex);
+        }
+
         // Open it in the editor, which will also attempt to update the preview to match
         FileSystem.resolve(path, function(err, file) {
             if(err) {
                 console.log("[Bramble Error] unable to open path in editor", path, err);
                 return;
             }
+            file.fragment = fragment;
             CommandManager.execute(Commands.CMD_ADD_TO_WORKINGSET_AND_OPEN, { fullPath: file.fullPath });
         });
     }

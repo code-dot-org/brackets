@@ -86,8 +86,11 @@ define(function (require, exports, module) {
      * preview, if it exist. They will be filled
      * with the url (or raw HTML) that has been passed to this function
      */
-    function update(urlOrHTML) {
+    function update(urlOrHTML, callback) {
         if(!urlOrHTML) {
+            if (callback) {
+                callback(new Error("No URL or HTML"));
+            }
             return;
         }
 
@@ -97,12 +100,21 @@ define(function (require, exports, module) {
         Compatibility.supportsIFrameHTMLBlobURL(function(err, shouldUseBlobURL) {
             if(err) {
                 console.error("[Brackets IFrame-Browser] Unexpected error:", err);
+                if (callback) {
+                    callback(err);
+                }
                 return;
             }
 
             if(iframe) {
                 if(shouldUseBlobURL) {
+                    iframe.onload = function () {
+                        if (callback) {
+                            callback(err);
+                        }
+                    };
                     iframe.src = urlOrHTML;
+                    return;
                 } else {
                     doc = iframe.contentWindow.document.open("text/html", "replace");
                     doc.write(urlOrHTML);
@@ -120,6 +132,9 @@ define(function (require, exports, module) {
                 } else {
                     detachedPreview.location.replace(urlOrHTML);
                 }
+            }
+            if (callback) {
+                callback(err);
             }
         });
     }

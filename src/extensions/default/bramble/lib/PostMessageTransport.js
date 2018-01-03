@@ -157,18 +157,41 @@ define(function (require, exports, module) {
         var msg = JSON.parse(msgStr);
         var detachedPreview = Browser.getDetachedPreview();
 
+        function completeSend(msgStr) {
+            win.postMessage(msgStr, "*");
+
+            if(detachedPreview && Tutorial.shouldPostMessage()) {
+                detachedPreview.postMessage(msgStr, "*");
+            }
+        }
+
         // Because we need to deal with reloads on this side (i.e., editor) of the
         // transport, check message before sending to remote, and reload if necessary
         // without actually sending to remote for processing.
         if(msg.method === "Page.reload" || msg.method === "Page.navigate") {
-            reload();
-            return;
-        }
+            reload(false, function (err) {
+                if (!err && msg.method === "Page.navigate") {
+                    var url = msg.params.url;
+                    var fragmentIndex = url.indexOf("#");
+                    if (fragmentIndex !== -1) {
+                        // NOTE: we can't place the fragment on the original navigation URL because
+                        // browsers are inconsistent in how they handle fragments at the end of
+                        // blob URLs
 
-        win.postMessage(msgStr, "*");
+                        // So, if the page we are navigating to has a fragment at the end of the URL,
+                        // the reload() was not sufficient, we also need to send a navigate to the
+                        // fragment here now that the new page has loaded.
 
-        if(detachedPreview && Tutorial.shouldPostMessage()) {
-            detachedPreview.postMessage(msgStr, "*");
+                        // Construct a new JSON message string after modifying the URL param to contain
+                        // the fragment by itself
+                        msg.params.url = url.substr(fragmentIndex);
+                        var newMsgStr = JSON.stringify(msg);
+                        completeSend(newMsgStr);
+                    }
+                }
+            });
+        } else {
+            completeSend(msgStr);
         }
     }
 
@@ -217,18 +240,24 @@ define(function (require, exports, module) {
      * Reload the LiveDev preview if not auto-updates aren't disabled.
      * If force=true, we ignore the current state of auto-updates and do it.
      */
-    function reload(force) {
+    function reload(force, callback) {
         var launcher = Launcher.getCurrentInstance();
         var liveDoc = LiveDevMultiBrowser._getCurrentLiveDoc();
         var url;
 
         // If auto-updates are disabled, and force wasn't passed, bail.
         if(!_autoUpdate && !force) {
+            if (callback) {
+                callback(new Error("Auto updates disabled"));
+            }
             return;
         }
 
         // Don't go any further if we don't have a live doc yet (nothing to reload)
         if(!liveDoc) {
+            if (callback) {
+                callback(new Error("No live doc, nothing to reload"));
+            }
             return;
         }
 
@@ -236,12 +265,18 @@ define(function (require, exports, module) {
 
         // Don't start rewriting a URL if it's already in process (prevents infinite loop)
         if(_pendingReloadUrl === url) {
+            if (callback) {
+                callback(new Error("Already pending reload"));
+            }
             return;
         }
 
         _pendingReloadUrl = url;
         launcher.launch(url, function() {
             _pendingReloadUrl = null;
+            if (callback) {
+                callback(null);
+            }
         });
     }
 

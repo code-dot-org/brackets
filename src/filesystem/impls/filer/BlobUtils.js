@@ -89,6 +89,10 @@ define(function (require, exports, module) {
 
     // Given a BLOB URL, lookup the associated filename
     function getFilename(blobUrl) {
+        var fragmentIndex = blobUrl.indexOf("#");
+        if (fragmentIndex !== -1) {
+            blobUrl = blobUrl.substr(0, fragmentIndex);
+        }
         var filename = paths[blobUrl];
 
         // We expect this to exist, if it doesn't,
