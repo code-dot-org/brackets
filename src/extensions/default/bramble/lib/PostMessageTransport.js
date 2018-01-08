@@ -106,8 +106,16 @@ define(function (require, exports, module) {
         window.addEventListener("message", _listener);
 
         // Reload whenever files are removed or renamed
-        BrambleEvents.on("fileRemoved", reload);
-        BrambleEvents.on("fileRenamed", reload);
+        BrambleEvents.on("fileRemoved", handleFileEventWithReload);
+        BrambleEvents.on("fileRenamed", handleFileEventWithReload);
+    }
+
+    /**
+    * Handles file events that should trigger a reload
+    */
+    function handleFileEventWithReload() {
+        // Call without parameters, ignoring any params passed to this function:
+        reload();
     }
 
     /**
