@@ -70,6 +70,10 @@ li.jstree-leaf > a {
     display: none;
 }
 
+.fullscreen-preview #sidebar {
+    display: none;
+}
+
 .fullscreen-preview .main-view .content {
     left: 0 !important;
 }
