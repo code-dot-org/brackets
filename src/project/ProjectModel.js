@@ -22,7 +22,7 @@
  */
 
 /* unittests: ProjectModel */
-/*global define, brackets, $ */
+/*global define, $ */
 
 /**
  * Provides the data source for a project and manages the view model for the FileTreeView.
@@ -58,14 +58,6 @@ define(function (require, exports, module) {
      */
     var _exclusionListRegEx = /\.pyc$|^\.git$|^\.gitmodules$|^\.svn$|^\.DS_Store$|^Thumbs\.db$|^\.hg$|^CVS$|^\.hgtags$|^\.idea$|^\.c9revisions$|^\.SyncArchive$|^\.SyncID$|^\.SyncIgnore$|\~$/;
 
-    /**
-     * @private
-     * A string containing all invalid characters for a specific platform.
-     * This will be used to construct a regular expression for checking invalid filenames.
-     * When a filename with one of these invalid characters are detected, then it is
-     * also used to substitute the place holder of the error message.
-     */
-    var _invalidChars;
 
     /**
      * @private
@@ -76,19 +68,24 @@ define(function (require, exports, module) {
     var _illegalFilenamesRegEx = /^(\.+|com[1-9]|lpt[1-9]|nul|con|prn|aux|)$|\.+$/i;
 
     /**
+     * @private
+     * RegEx to validate if a filename contains illegal characters.
+     */
+    var _illegalCharactersRegEx = /[^0-9A-Za-z!-_.'()]/;
+
+    /**
      * Returns true if this matches valid filename specifications.
      *
      * TODO: This likely belongs in FileUtils.
      *
      * @param {string} filename to check
-     * @param {string} invalidChars List of characters that are disallowed
      * @return {boolean} true if the filename is valid
      */
-    function isValidFilename(filename, invalidChars) {
+    function isValidFilename(filename) {
         // Validate file name
         // Checks for valid Windows filenames:
         // See http://msdn.microsoft.com/en-us/library/windows/desktop/aa365247(v=vs.85).aspx
-        return !((filename.search(new RegExp("[" + invalidChars + "]+")) !== -1) ||
+        return !((filename.search(new RegExp(_illegalCharactersRegEx)) !== -1) ||
                  filename.match(_illegalFilenamesRegEx));
     }
 
@@ -171,7 +168,7 @@ define(function (require, exports, module) {
         var d = new $.Deferred();
 
         var name = FileUtils.getBaseName(path);
-        if (!isValidFilename(name, _invalidChars)) {
+        if (!isValidFilename(name)) {
             return d.reject(ERROR_INVALID_FILENAME).promise();
         }
 
@@ -880,7 +877,7 @@ define(function (require, exports, module) {
 
         if (oldName === newName) {
             result.resolve();
-        } else if (!isValidFilename(FileUtils.getBaseNameDontIgnoreTrailingSlash(newName), _invalidChars)) {
+        } else if (!isValidFilename(FileUtils.getBaseNameDontIgnoreTrailingSlash(newName))) {
             result.reject(ERROR_INVALID_FILENAME);
         } else {
             var entry = isFolder ? FileSystem.getDirectoryForPath(oldName) : FileSystem.getFileForPath(oldName);
@@ -1324,21 +1321,12 @@ define(function (require, exports, module) {
         return welcomeProjects.indexOf(pathNoSlash) !== -1;
     }
 
-    // Init invalid characters string
-    if (brackets.platform === "mac") {
-        _invalidChars = "?*|:";
-    } else if (brackets.platform === "linux") {
-        _invalidChars = "?*|/";
-    } else {
-        _invalidChars = "/?*:<>\\|\"";  // invalid characters on Windows
-    }
 
     exports._getWelcomeProjectPath  = _getWelcomeProjectPath;
     exports._addWelcomeProjectPath  = _addWelcomeProjectPath;
     exports._isWelcomeProjectPath   = _isWelcomeProjectPath;
     exports._ensureTrailingSlash    = _ensureTrailingSlash;
     exports._shouldShowName         = _shouldShowName;
-    exports._invalidChars           = _invalidChars;
 
     exports.shouldShow              = shouldShow;
     exports.isValidFilename         = isValidFilename;

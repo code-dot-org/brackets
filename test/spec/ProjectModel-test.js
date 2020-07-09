@@ -313,11 +313,11 @@ define(function (require, exports, module) {
         
         describe("isValidFilename", function () {
             it("returns true for filenames with nothing invalid", function () {
-                expect(ProjectModel.isValidFilename("foo.txt", "*")).toBe(true);
+                expect(ProjectModel.isValidFilename("foo.txt")).toBe(true);
             });
             
             it("returns false for filenames that match the invalid characters", function () {
-                expect(ProjectModel.isValidFilename("foo*txt", "|*")).toBe(false);
+                expect(ProjectModel.isValidFilename("foo%txt")).toBe(false);
             });
             
             it("returns false for filenames that match the internal list of disallowed names", function () {
