@@ -27,7 +27,7 @@
 	url = https://github.com/peterflynn/JSLint.git
 [submodule "src/thirdparty/filer"]
 	path = src/thirdparty/filer
-	url = git@github.com:code-dot-org/filer.git
+	url = https://github.com/code-dot-org/filer.git
 [submodule "src/extensions/default/brackets-paste-and-indent"]
 	path = src/extensions/default/brackets-paste-and-indent
 	url = https://github.com/ahuth/brackets-paste-and-indent.git
