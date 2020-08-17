@@ -21,16 +21,23 @@
  *
  */
 
-/*global define, HTMLElement, MessageChannel, addEventListener*/
+/*global require, define, HTMLElement, MessageChannel, addEventListener*/
+require.config({
+    paths: {
+        "EventEmitter": "../node_modules/wolfy87-eventemitter/EventEmitter.min"
+    }
+});
 
 define([
-    // Change this to filer vs. filer.min if you need to debug Filer
+    // NOTE: if you modify the files involved here, also change the requirejs:iframe files list in Gruntfile.js
+    // filer.min - change this to filer vs. filer.min if you need to debug Filer
     "thirdparty/filer/dist/filer.min",
     "bramble/ChannelUtils",
-    "bramble/thirdparty/EventEmitter/EventEmitter.min",
+    "EventEmitter",
     "bramble/client/StateManager",
-    "bramble/thirdparty/MessageChannel/message_channel"
-], function(Filer, ChannelUtils, EventEmitter, StateManager) {
+    "bramble/client/ProjectStats",
+    "filesystem/impls/filer/lib/Sizes"
+], function(Filer, ChannelUtils, EventEmitter, StateManager, ProjectStats, Sizes) {
     "use strict";
 
     // PROD URL for Bramble, which can be changed below
@@ -48,6 +55,9 @@ define([
 
     // We only support having a single instance in the page.
     var _instance;
+
+    // Project size info, and filesystem book-keeping. We create during Bramble.mount()
+    var _projectStats;
 
     function parseEventData(data) {
         debug("parseEventData", data);
@@ -83,6 +93,8 @@ define([
         // When we hit the READY state, also trigger an event and pass instance up
         if (_readyState === Bramble.READY) {
             Bramble.trigger("ready", [_instance]);
+            // Send project size info into Brackets too.
+            _projectStats.checkCapacity();
         }
         // When we go into the ERROR state, also trigger an event and pass err
         else if (_readyState === Bramble.ERROR) {
@@ -110,13 +122,39 @@ define([
 
     // Expose Filer for Path, Buffer, providers, etc.
     Bramble.Filer = Filer;
-    var _fs = new Filer.FileSystem();
+
+    var _fs;
+
+    // Checks if the query parameter is 'temporaryStorage'
+    var useTemporaryStorage = /(temporary[sS]torage[=&])|(temporary[Ss]torage$)/.test(window.location.search);
+    var provider = null;
+
+    // Using memory-backed filesystem if requested
+    if(useTemporaryStorage) {
+        provider = new Filer.FileSystem.providers.Memory();
+        console.warn("[Bramble] Overriding filesystem to use temporary storage. ALL FILES WILL BE DELETED WHEN PAGE IS CLOSED.");
+    }
+
+    _fs = new Filer.FileSystem({provider : provider});
+
     Bramble.getFileSystem = function() {
         return _fs;
     };
+
     // NOTE: THIS WILL DESTROY DATA! For error cases only, or to wipe the disk.
     Bramble.formatFileSystem = function(callback) {
-        _fs = new Filer.FileSystem({flags: ["FORMAT"]}, callback);
+        _fs = new Filer.FileSystem({flags: ["FORMAT"], provider : provider}, function(err) {
+            if(err) {
+                return callback(err);
+            }
+
+            // Re-init the ProjectStats object with the updated filesystem instance.
+            if(_projectStats) {
+                _projectStats.init(_fs, callback);
+            } else {
+                callback();
+            }
+        });
     };
 
     // Start loading Bramble's resources, setup communication with iframe
@@ -147,7 +185,73 @@ define([
             return;
         }
 
-        _instance.mount(root, filename);
+        _projectStats = new ProjectStats({
+            root: root,
+            capacity: _instance.getMaxCapacity(),
+        });
+
+        // Monitor disk use and limit activity when we hit capacity.
+        _projectStats.on("capacityStateChange", function(overCapacity, amountInBytes) {
+            function fireOverCapacity() {
+                amountInBytes = Math.abs(amountInBytes);
+
+                console.warn("[Bramble] project has exceeded maximum allowed capacity by " + amountInBytes + " bytes. Limiting disk activity until space is recovered.");
+
+                _instance._executeRemoteCommand({
+                    commandCategory: "bramble",
+                    command: "BRAMBLE_ENABLE_PROJECT_CAPACITY_LIMITS",
+                    args: [ amountInBytes ]
+                });
+
+                _instance.trigger("capacityExceeded", [ amountInBytes ]);
+            }
+
+            function fireCapacityRestored() {
+                console.warn("[Bramble] project within allowed capacity, removing disk actity limits.");
+
+                _instance._executeRemoteCommand({
+                    commandCategory: "bramble",
+                    command: "BRAMBLE_DISABLE_PROJECT_CAPACITY_LIMITS"
+                });
+
+                _instance.trigger("capacityRestored");
+            }
+
+            if(overCapacity) {
+                // If we're starting up, and exceed the size, wait til the app's fully loaded to trigger.
+                if(_readyState !== Bramble.READY) {
+                    Bramble.once("ready", fireOverCapacity);
+                } else {
+                    fireOverCapacity();
+                }
+            } else {
+                fireCapacityRestored();
+            }
+        });
+
+        _projectStats.init(_fs, function(err) {
+            if(err) {
+                setReadyState(Bramble.ERROR, new Error("Unable to access filesystem: ", err));
+                return;
+            }
+
+            // Listen for changes to the project's size on disk, and update both app + bramble with info.
+            _projectStats.on("projectSizeChange", function(size, percentUsed) {
+                _instance.trigger("projectSizeChange", [size, percentUsed]);
+
+                _instance._executeRemoteCommand({
+                    commandCategory: "bramble",
+                    command: "BRAMBLE_PROJECT_SIZE_CHANGE",
+                    args: [{
+                        size: size,
+                        percentUsed: percentUsed
+                    }]
+                });
+            });
+
+
+            _instance.mount(root, filename);
+        });
     };
 
     /**
@@ -193,6 +297,9 @@ define([
         // Whether or not we want to try and auto-recover a corrupted filesystem on error
         self._autoRecoverFileSystem = options.autoRecoverFileSystem;
 
+        // Project disk capacity.  If not specified, use default
+        var _capacity = options.capacity || Sizes.DEFAULT_PROJECT_SIZE_LIMIT;
+
         // Public getters for state. Most of these aren't useful until bramble.ready()
         self.getID = function() { return _id; };
         self.getIFrame = function() { return _iframe; };
@@ -204,8 +311,33 @@ define([
         self.getSidebarVisible = function() { return _state.sidebarVisible; };
         self.getRootDir = function() { return _root; };
         self.getWordWrap = function() { return _state.wordWrap; };
+        self.getAutocomplete = function() { return _state.allowAutocomplete; };
+        self.getAutoCloseTags = function() { return _state.autoCloseTags; };
+        self.getAllowJavaScript = function() { return _state.allowJavaScript; };
+        self.getAllowWhiteSpace = function() { return _state.allowWhiteSpace; };
+        self.getAutoUpdate = function() { return _state.autoUpdate; };
+        self.getOpenSVGasXML = function() { return _state.openSVGasXML; };
         self.getTutorialExists = function() { return _tutorialExists; };
         self.getTutorialVisible = function() { return _tutorialVisible; };
+        self.getTotalProjectSize = function() {
+            if(!_projectStats) {
+                return 0;
+            }
+            return _projectStats.getTotalProjectSize();
+        };
+        self.getMaxCapacity = function() { return _capacity; };
+        self.hasIndexFile =  function() {
+            if(!_projectStats) {
+                return false;
+            }
+            return _projectStats.hasIndexFile();
+        };
+        self.getFileCount = function() {
+           if(!_projectStats) {
+                return 0;
+            }
+            return _projectStats.getFileCount();
+        };
         self.getLayout = function() {
             return {
                 sidebarWidth: _state.sidebarWidth,
@@ -228,7 +360,18 @@ define([
             addEventListener("message", function(e) {
                 var data = parseEventData(e.data);
 
-                // When Bramble is ready for the filesystem to be mounted, it will let us know
+                // Deal with messages from the service worker regarding cache. We trigger these
+                // events on Bramble vs. the bramble instance.
+                if(data.type === "Bramble:updatesAvailable") {
+                    Bramble.trigger("updatesAvailable");
+                    return;
+                }
+                if(data.type === "Bramble:offlineReady") {
+                    Bramble.trigger("offlineReady");
+                    return;
+                }
+
+                // When bramble instance is ready for the filesystem to be mounted, it will let us know
                 if (data.type === "bramble:readyToMount") {
                     debug("bramble:readyToMount");
                     setReadyState(Bramble.MOUNTABLE);
@@ -262,6 +405,12 @@ define([
                     _state.previewMode = data.previewMode;
                     _state.theme = data.theme;
                     _state.wordWrap = data.wordWrap;
+                    _state.autoCloseTags = data.autoCloseTags;
+                    _state.allowJavaScript = data.allowJavaScript;
+                    _state.allowWhiteSpace = data.allowWhiteSpace;
+                    _state.autocomplete = data.autocomplete;
+                    _state.autoUpdate = data.autoUpdate;
+                    _state.openSVGasXML = data.openSVGasXML;
 
                     setReadyState(Bramble.READY);
                 }
@@ -297,8 +446,20 @@ define([
                         _state.sidebarVisible = data.visible;
                     } else if (eventName === "wordWrapChange") {
                         _state.wordWrap = data.wordWrap;
+                    } else if (eventName === "autoCloseTagsChange") {
+                        _state.autoCloseTags = data.autoCloseTags;
+                    } else if (eventName === "openSVGasXMLChange") {
+                        _state.openSVGasXML = data.openSVGasXML;
+                    } else if (eventName === "allowJavaScriptChange") {
+                        _state.allowJavaScript = data.allowJavaScript;
+                    } else if (eventName === "allowWhiteSpaceChange") {
+                        _state.allowWhiteSpace = data.allowWhiteSpace;
                     } else if (eventName === "tutorialVisibilityChange") {
                         _tutorialVisible = data.visible;
+                    } else if (eventName === "autocompleteChange") {
+                        _state.allowAutocomplete = data.value;
+                    } else if (eventName === "autoUpdateChange") {
+                        _state.autoUpdate = data.autoUpdate;
                     }
 
                     debug("triggering remote event", eventName, data);
@@ -317,7 +478,7 @@ define([
             }
 
             div.innerHTML = "<iframe id='" + _id +
-                            "' frameborder='0' width='100%' height='100%'></iframe>";
+                            "' frameborder='0' width='100%' height='100%' allow='geolocation *; microphone *; camera *'></iframe>";
 
             _iframe = document.getElementById(_id);
             if (options.hideUntilReady) {
@@ -413,7 +574,15 @@ define([
                                     secondPaneWidth: _state.secondPaneWidth,
                                     previewMode: _state.previewMode,
                                     readOnly: _state.readOnly,
-                                    wordWrap: _state.wordWrap
+                                    wordWrap: _state.wordWrap,
+                                    allowAutocomplete: _state.allowAutocomplete,
+                                    autoCloseTags: _state.autoCloseTags,
+                                    autoUpdate: _state.autoUpdate,
+                                    openSVGasXML: _state.openSVGasXML,
+                                    allowJavaScript: _state.allowJavaScript,
+                                    allowWhiteSpace: _state.allowWhiteSpace,
+                                    // Allow overriding the default name for project zip files
+                                    zipFilenamePrefix: options.zipFilenamePrefix
                                 }
                             };
                             _brambleWindow.postMessage(JSON.stringify(initMessage), _iframe.src);
@@ -437,10 +606,11 @@ define([
 
         function setupChannel(win) {
             var channel = new MessageChannel();
-            ChannelUtils.postMessage(win,
-                                     [JSON.stringify({type: "bramble:filer"}),
-                                     "*",
-                                     [channel.port2]]);
+            win.postMessage(
+                JSON.stringify({type: "bramble:filer"}),
+                "*",
+                [channel.port2]
+            );
             _port = channel.port1;
             _port.start();
 
@@ -736,7 +906,14 @@ define([
                         // If the path was a file, immediately unlink
                         // trigger the event, and call the callback
                         if(err.code === "ENOTDIR") {
-                            return shell.rm(path, genericFileEventFn("fileDelete", path, callback));
+                            return shell.rm(path, genericFileEventFn("fileDelete", path, function(err) {
+                            	var wrappedCallback = callback;
+                            	if(!err && path === self.tutorialPath) {
+                            	   wrappedCallback = genericFileEventFn("tutorialRemoved", path, wrappedCallback);
+                            	   _tutorialExists = false;
+                            	}
+                            	wrappedCallback(err);
+                            }));
                         }
 
                         return callback(err);
@@ -851,6 +1028,14 @@ define([
         this._executeRemoteCommand({commandCategory: "bramble", command: "BRAMBLE_HIDE_SIDEBAR"}, callback);
     };
 
+    BrambleProxy.prototype.showPreview = function(callback) {
+        this._executeRemoteCommand({commandCategory: "bramble", command: "BRAMBLE_SHOW_PREVIEW"}, callback);
+    };
+
+    BrambleProxy.prototype.hidePreview = function(callback) {
+        this._executeRemoteCommand({commandCategory: "bramble", command: "BRAMBLE_HIDE_PREVIEW"}, callback);
+    };
+
     BrambleProxy.prototype.showStatusbar = function(callback) {
         this._executeRemoteCommand({commandCategory: "bramble", command: "BRAMBLE_SHOW_STATUSBAR"}, callback);
     };
@@ -895,6 +1080,30 @@ define([
         this._executeRemoteCommand({commandCategory: "bramble", command: "BRAMBLE_DISABLE_SCRIPTS"}, callback);
     };
 
+    BrambleProxy.prototype.enableWhiteSpace = function(callback) {
+        this._executeRemoteCommand({commandCategory: "bramble", command: "BRAMBLE_ENABLE_WHITESPACE"}, callback);
+    };
+
+    BrambleProxy.prototype.disableWhiteSpace = function(callback) {
+        this._executeRemoteCommand({commandCategory: "bramble", command: "BRAMBLE_DISABLE_WHITESPACE"}, callback);
+    };
+
+    BrambleProxy.prototype.enableAutocomplete = function(callback) {
+        this._executeRemoteCommand({commandCategory: "bramble", command: "BRAMBLE_ENABLE_AUTOCOMPLETE"}, callback);
+    };
+
+    BrambleProxy.prototype.disableAutocomplete = function(callback) {
+        this._executeRemoteCommand({commandCategory: "bramble", command: "BRAMBLE_DISABLE_AUTOCOMPLETE"}, callback);
+    };
+
+    BrambleProxy.prototype.openSVGasXML = function(callback) {
+        this._executeRemoteCommand({commandCategory: "bramble", command: "BRAMBLE_OPEN_SVG_AS_XML"}, callback);
+    };
+
+    BrambleProxy.prototype.openSVGasImage = function(callback) {
+        this._executeRemoteCommand({commandCategory: "bramble", command: "BRAMBLE_OPEN_SVG_AS_IMAGE"}, callback);
+    };
+
     BrambleProxy.prototype.enableInspector = function(callback) {
         this._executeRemoteCommand({commandCategory: "bramble", command: "BRAMBLE_ENABLE_INSPECTOR"}, callback);
     };
@@ -909,6 +1118,10 @@ define([
 
     BrambleProxy.prototype.disableWordWrap = function(callback) {
         this._executeRemoteCommand({commandCategory: "bramble", command: "BRAMBLE_DISABLE_WORD_WRAP"}, callback);
+    };
+
+    BrambleProxy.prototype.configureAutoCloseTags = function(options, callback) {
+        this._executeRemoteCommand({commandCategory: "bramble", command: "BRAMBLE_CONFIGURE_AUTO_CLOSE_TAGS", args: [ options ]}, callback);
     };
 
     BrambleProxy.prototype.showTutorial = function(callback) {
@@ -938,11 +1151,19 @@ define([
     };
 
     BrambleProxy.prototype.addNewFolder = function(callback) {
-        this._executeRemoteCommand({commandCategory: "brackets", command: "FILE_FOLDER"}, callback);
+        this._executeRemoteCommand({commandCategory: "brackets", command: "FILE_NEW_FOLDER"}, callback);
     };
 
     BrambleProxy.prototype.export = function(callback) {
         this._executeRemoteCommand({commandCategory: "bramble", command: "BRAMBLE_EXPORT"}, callback);
+    };
+
+    BrambleProxy.prototype.addCodeSnippet = function(options, callback) {
+        this._executeRemoteCommand({
+            commandCategory: "bramble",
+            command: "BRAMBLE_ADD_CODE_SNIPPET",
+            args: [options]
+        }, callback);
     };
 
     return Bramble;

@@ -56,8 +56,8 @@ var destLocales;
 templates.addFilter('escapeQuotes', function(str){
     return str.replace(/"/g, "&quot;");
 });
- 
- function getDestLocaleDir(locale) {
+
+function getDestLocaleDir(locale) {
     "use strict";
 
     return locale === "en-US" ? EN_US_DIR : locale.toLowerCase();
@@ -98,7 +98,7 @@ function localizeBrackets(locale) {
             return Promise.resolve();
         }
 
-        if(isNewLocale) {
+        if(isNewLocale && (destLocales.indexOf(localeDir) === -1)) {
             destLocales.push(localeDir);
         }
 
