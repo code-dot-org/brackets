@@ -418,7 +418,6 @@ define(function (require, exports, module) {
             allowJavaScript             : currentOptions[ALLOW_JAVASCRIPT],
             matchBrackets               : { maxScanLineLength: 50000, maxScanLines: 1000 },
             matchTags                   : { bothTags: true },
-            readOnly                    : readOnly,
             scrollPastEnd               : !range && currentOptions[SCROLL_PAST_END],
             showCursorWhenSelecting     : currentOptions[SHOW_CURSOR_SELECT],
             smartIndent                 : currentOptions[SMART_INDENT],
