@@ -362,10 +362,8 @@ define(function (require, exports, module) {
             _provider = new CacheStorageUrlProvider();
             break;
         default:
-            // Prefer CacheStorage if we have full support, but fallback to Blob URLs
-            _provider = ("caches" in window && "serviceWorker" in window.navigator) ?
-                new CacheStorageUrlProvider() :
-                new BlobUrlProvider(true);
+            // CDO-Bramble: Always default to blob URLs
+            _provider = new BlobUrlProvider(true);
             break;
         }
 
