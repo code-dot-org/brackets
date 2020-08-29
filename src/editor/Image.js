@@ -8,6 +8,7 @@ define(function (require, exports, module) {
     var Path                = require("filesystem/impls/filer/BracketsFiler").Path;
     var mimeFromExt         = require("filesystem/impls/filer/lib/content").mimeFromExt;
     var LiveDevMultiBrowser = require("LiveDevelopment/LiveDevMultiBrowser");
+    var PreferencesManager  = require("preferences/PreferencesManager");
 
     function initializeFilterButtons(image, imagePath, extractColors) {
         var imageMimeType = mimeFromExt(Path.extname(imagePath));
@@ -131,6 +132,11 @@ define(function (require, exports, module) {
     }
 
     exports.load = function(imageElement, imagePath, extractColors) {
+        // CDO-Bramble: Skip initialization in readonly mode
+        if (PreferencesManager.get("readOnly")) {
+            return;
+        }
+
         try {
             var image = Caman(imageElement);
             initializeFilterButtons(image, imagePath, extractColors);
