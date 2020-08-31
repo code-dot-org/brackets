@@ -17,14 +17,6 @@
         "path": "extensions/default/CSSPseudoSelectorHints"
     },
     {
-        "path": "extensions/default/HtmlEntityCodeHints",
-        "less": {
-            "dist/extensions/default/HTMLEntityCodeHints/styles.css": [
-                "src/extensions/default/HtmlEntityCodeHints/styles.css"
-            ]
-        }
-    },
-    {
         "path": "extensions/extra/JavaScriptCodeHints-Browser",
         "less": {
             "dist/extensions/extra/JavaScriptCodeHints-Browser/styles/brackets-js-hints.css": [
