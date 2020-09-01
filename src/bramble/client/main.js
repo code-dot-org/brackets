@@ -1144,7 +1144,7 @@ define([
             commandCategory: "bramble",
             command: "BRAMBLE_FILE_REFRESH"
         }, callback);
-    }
+    };
 
     BrambleProxy.prototype.addNewFile = function(options, callback) {
         // We only support writing textual data this way
