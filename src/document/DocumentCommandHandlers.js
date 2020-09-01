@@ -700,6 +700,14 @@ define(function (require, exports, module) {
     }
 
     /**
+     * CDO-Bramble: Refresh the project tree.
+     */
+    function handleFileRefresh() {
+        var deferred = new $.Deferred();
+        CommandManager.execute(Commands.FILE_REFRESH).always(deferred.resolve);
+    }
+
+    /**
      * Create a new file in the project tree.
      */
     function handleFileNewInProject() {
@@ -1915,6 +1923,9 @@ define(function (require, exports, module) {
     CommandManager.registerInternal(Commands.FILE_CLOSE_WINDOW,         handleFileCloseWindow);
     CommandManager.registerInternal(Commands.APP_RELOAD,                handleReload);
     CommandManager.registerInternal(Commands.APP_RELOAD_WITHOUT_EXTS,   handleReloadWithoutExts);
+
+    // CDO-Bramble: Support manually refreshing the project tree
+    CommandManager.registerInternal("bramble.fileRefresh",              handleFileRefresh);
 
     // XXXBramble: support adding a new file with options
     CommandManager.registerInternal("bramble.addFile",                  handleBrambleNewFile);

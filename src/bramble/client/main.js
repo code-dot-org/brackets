@@ -1136,6 +1136,16 @@ define([
         this._executeRemoteCommand({commandCategory: "bramble", command: "BRAMBLE_SHOW_UPLOAD_FILES_DIALOG"}, callback);
     };
 
+    /**
+     * CDO-Bramble: Refresh the project tree.
+     */
+    BrambleProxy.prototype.fileRefresh = function(callback) {
+        this._executeRemoteCommand({
+            commandCategory: "bramble",
+            command: "BRAMBLE_FILE_REFRESH"
+        }, callback);
+    }
+
     BrambleProxy.prototype.addNewFile = function(options, callback) {
         // We only support writing textual data this way
         if(typeof(options.contents) !== "string") {

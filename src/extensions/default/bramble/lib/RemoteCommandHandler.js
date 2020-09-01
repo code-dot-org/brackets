@@ -187,6 +187,12 @@ define(function (require, exports, module) {
             skipCallback = true;
             CommandManager.execute("bramble.showUploadFiles").always(callback);
             break;
+        case "BRAMBLE_FILE_REFRESH":
+            skipCallback = true;
+            CommandManager
+                .execute("bramble.fileRefresh")
+                .always(callback);
+            break;
         case "BRAMBLE_ADD_NEW_FILE":
             skipCallback = true;
             // Make sure we have enough room to add new files.
