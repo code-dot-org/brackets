@@ -6,7 +6,7 @@ define(function (require, exports, module) {
     var Content = require("filesystem/impls/filer/lib/content");
     var HTMLRewriter = require("filesystem/impls/filer/lib/HTMLRewriter");
     var CSSRewriter = require("filesystem/impls/filer/lib/CSSRewriter");
-    var BlobUtils = require("filesystem/impls/filer/BlobUtils");
+    var UrlCache = require("filesystem/impls/filer/UrlCache");
     var Transforms = require("filesystem/impls/filer/lib/transforms");
     var Path = require("filesystem/impls/filer/BracketsFiler").Path;
 
@@ -34,12 +34,10 @@ define(function (require, exports, module) {
                         callback(err);
                         return;
                     }
-                    BlobUtils.createURL(path, css, mimeType);
-                    callback();
+                    UrlCache.createURL(path, css, mimeType, callback);
                 });
             } else {
-                BlobUtils.createURL(path, data, mimeType);
-                callback();
+                UrlCache.createURL(path, data, mimeType, callback);
             }
         }
 

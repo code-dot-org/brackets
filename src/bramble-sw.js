@@ -4,4 +4,15 @@
  * time, see Gruntfile and swPrecache task.
  */
 
-console.log("[Bramble] Service Worker cache not running in development.");
+// Get this new SW running as soon as possible.
+self.addEventListener('install', function(event) {
+    "use strict";
+    event.waitUntil(self.skipWaiting());
+});
+self.addEventListener('activate', function(event) {
+    "use strict";
+    event.waitUntil(self.clients.claim());
+});
+
+// We only need the Cache Storage server in src/ builds
+self.importScripts("bramble-live-dev-cache-sw.js");

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 Adobe Systems Incorporated. All rights reserved.
+ * Copyright (c) 2014 - present Adobe Systems Incorporated. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,7 +22,6 @@
  */
 
 /* unittests: ProjectModel */
-/*global define, brackets, $ */
 
 /**
  * Provides the data source for a project and manages the view model for the FileTreeView.
@@ -45,7 +44,8 @@ define(function (require, exports, module) {
         EVENT_SHOULD_SELECT     = "select",
         EVENT_SHOULD_FOCUS      = "focus",
         ERROR_CREATION          = "creationError",
-        ERROR_INVALID_FILENAME  = "invalidFilename";
+        ERROR_INVALID_FILENAME  = "invalidFilename",
+        ERROR_NOT_IN_PROJECT    = "notInProject";
 
     /**
      * @private
@@ -56,7 +56,17 @@ define(function (require, exports, module) {
      *    https://github.com/adobe/brackets/issues/6781
      * @type {RegExp}
      */
-    var _exclusionListRegEx = /\.pyc$|^\.git$|^\.gitmodules$|^\.svn$|^\.DS_Store$|^Thumbs\.db$|^\.hg$|^CVS$|^\.hgtags$|^\.idea$|^\.c9revisions$|^\.SyncArchive$|^\.SyncID$|^\.SyncIgnore$|\~$/;
+    var _exclusionListRegEx = /\.pyc$|^\.git$|^\.gitmodules$|^\.svn$|^\.DS_Store$|^Icon\r|^Thumbs\.db$|^\.hg$|^CVS$|^\.hgtags$|^\.idea$|^\.c9revisions$|^\.SyncArchive$|^\.SyncID$|^\.SyncIgnore$|\~$/;
+
+    /**
+     * Glob definition of files and folders that should be excluded directly
+     * inside node domain watching with chokidar
+     */
+    var defaultIgnoreGlobs = [
+        "**/(.pyc|.git|.gitmodules|.svn|.DS_Store|Thumbs.db|.hg|CVS|.hgtags|.idea|.c9revisions|.SyncArchive|.SyncID|.SyncIgnore)",
+        "**/bower_components",
+        "**/node_modules"
+    ];
 
     /**
      * @private
@@ -88,8 +98,10 @@ define(function (require, exports, module) {
         // Validate file name
         // Checks for valid Windows filenames:
         // See http://msdn.microsoft.com/en-us/library/windows/desktop/aa365247(v=vs.85).aspx
-        return !((filename.search(new RegExp("[" + invalidChars + "]+")) !== -1) ||
-                 filename.match(_illegalFilenamesRegEx));
+        return !(
+            new RegExp("[" + invalidChars + "]+").test(filename) ||
+            _illegalFilenamesRegEx.test(filename)
+        );
     }
 
     /**
@@ -97,7 +109,7 @@ define(function (require, exports, module) {
      * @see #shouldShow
      */
     function _shouldShowName(name) {
-        return !name.match(_exclusionListRegEx);
+        return !_exclusionListRegEx.test(name);
     }
 
     /**
@@ -409,9 +421,10 @@ define(function (require, exports, module) {
      * starting up. The cache is cleared on every filesystem change event, and
      * also on project load and unload.
      *
+     * @param {boolean} true to sort files by their paths
      * @return {$.Promise.<Array.<File>>}
      */
-    ProjectModel.prototype._getAllFilesCache = function _getAllFilesCache() {
+    ProjectModel.prototype._getAllFilesCache = function _getAllFilesCache(sort) {
         if (!this._allFilesCachePromise) {
             var deferred = new $.Deferred(),
                 allFiles = [],
@@ -428,9 +441,12 @@ define(function (require, exports, module) {
             this._allFilesCachePromise = deferred.promise();
 
             var projectIndexTimer = PerfUtils.markStart("Creating project files cache: " +
-                                                        this.projectRoot.fullPath);
+                                                        this.projectRoot.fullPath),
+                options = {
+                    sortList : sort
+                };
 
-            this.projectRoot.visit(allFilesVisitor, function (err) {
+            this.projectRoot.visit(allFilesVisitor, options, function (err) {
                 if (err) {
                     PerfUtils.finalizeMeasurement(projectIndexTimer);
                     deferred.reject(err);
@@ -452,10 +468,11 @@ define(function (require, exports, module) {
      *          the file list (does not filter directory traversal). API matches Array.filter().
      * @param {Array.<File>=} additionalFiles Additional files to include (for example, the WorkingSet)
      *          Only adds files that are *not* under the project root or untitled documents.
+     * @param {boolean} true to sort files by their paths
      *
      * @return {$.Promise} Promise that is resolved with an Array of File objects.
      */
-    ProjectModel.prototype.getAllFiles = function getAllFiles(filter, additionalFiles) {
+    ProjectModel.prototype.getAllFiles = function getAllFiles(filter, additionalFiles, sort) {
         // The filter and includeWorkingSet params are both optional.
         // Handle the case where filter is omitted but includeWorkingSet is
         // specified.
@@ -470,7 +487,7 @@ define(function (require, exports, module) {
         // Note that with proper promises we may be able to fix this so that we're not doing this
         // anti-pattern of creating a separate deferred rather than just chaining off of the promise
         // from _getAllFilesCache
-        this._getAllFilesCache().done(function (result) {
+        this._getAllFilesCache(sort).done(function (result) {
             // Add working set entries, if requested
             if (additionalFiles) {
                 additionalFiles.forEach(function (file) {
@@ -794,16 +811,25 @@ define(function (require, exports, module) {
      * @return {$.Promise} resolved when the operation is complete.
      */
     ProjectModel.prototype.startRename = function (path) {
+        var d = new $.Deferred();
         path = _getPathFromFSObject(path);
         if (!path) {
             path = this._selections.context;
             if (!path) {
-                return new $.Deferred().resolve().promise();
+                return d.resolve().promise();
             }
         }
 
         if (this._selections.rename && this._selections.rename.path === path) {
             return;
+        }
+
+        if (!this.isWithinProject(path)) {
+            return d.reject({
+                type: ERROR_NOT_IN_PROJECT,
+                isFolder: !_pathIsFile(path),
+                fullPath: path
+            }).promise();
         }
 
         var projectRelativePath = this.makeProjectRelativeIfPossible(path);
@@ -820,7 +846,6 @@ define(function (require, exports, module) {
 
         this._viewModel.moveMarker("rename", null,
                                    projectRelativePath);
-        var d = new $.Deferred();
         this._selections.rename = {
             deferred: d,
             type: FILE_RENAMING,
@@ -869,22 +894,23 @@ define(function (require, exports, module) {
      * Rename a file/folder. This will update the project tree data structures
      * and send notifications about the rename.
      *
-     * @param {string} oldName Old item name
-     * @param {string} newName New item name
+     * @param {string} oldPath Old name of the item with the path
+     * @param {string} newPath New name of the item with the path
+     * @param {string} newName New name of the item
      * @param {boolean} isFolder True if item is a folder; False if it is a file.
      * @return {$.Promise} A promise object that will be resolved or rejected when
      *   the rename is finished.
      */
-    function _renameItem(oldName, newName, isFolder) {
+    function _renameItem(oldPath, newPath, newName, isFolder) {
         var result = new $.Deferred();
 
-        if (oldName === newName) {
+        if (oldPath === newPath) {
             result.resolve();
         } else if (!isValidFilename(FileUtils.getBaseNameDontIgnoreTrailingSlash(newName), _invalidChars)) {
             result.reject(ERROR_INVALID_FILENAME);
         } else {
-            var entry = isFolder ? FileSystem.getDirectoryForPath(oldName) : FileSystem.getFileForPath(oldName);
-            entry.rename(newName, function (err) {
+            var entry = isFolder ? FileSystem.getDirectoryForPath(oldPath) : FileSystem.getFileForPath(oldPath);
+            entry.rename(newPath, function (err) {
                 if (err) {
                     result.reject(err);
                 } else {
@@ -902,10 +928,11 @@ define(function (require, exports, module) {
      * Renames the item at the old path to the new name provided.
      *
      * @param {string} oldPath full path to the current location of file or directory (should include trailing slash for directory)
+     * @param {string} newPath full path to the new location of the file or directory
      * @param {string} newName new name for the file or directory
      */
-    ProjectModel.prototype._renameItem = function (oldPath, newName) {
-        return _renameItem(oldPath, newName, !_pathIsFile(oldPath));
+    ProjectModel.prototype._renameItem = function (oldPath, newPath, newName) {
+        return _renameItem(oldPath, newPath, newName, !_pathIsFile(oldPath));
     };
 
     /**
@@ -966,7 +993,7 @@ define(function (require, exports, module) {
                 renameInfo.deferred.reject(error);
             });
         } else {
-            this._renameItem(oldPath, newPath).then(function () {
+            this._renameItem(oldPath, newPath, newName).then(function () {
                 finalizeRename();
                 renameInfo.deferred.resolve({
                     newPath: newPath
@@ -1326,7 +1353,7 @@ define(function (require, exports, module) {
 
     // Init invalid characters string
     if (brackets.platform === "mac") {
-        _invalidChars = "?*|:";
+        _invalidChars = "?*|:/";
     } else if (brackets.platform === "linux") {
         _invalidChars = "?*|/";
     } else {
@@ -1341,12 +1368,14 @@ define(function (require, exports, module) {
     exports._invalidChars           = _invalidChars;
 
     exports.shouldShow              = shouldShow;
+    exports.defaultIgnoreGlobs      = defaultIgnoreGlobs;
     exports.isValidFilename         = isValidFilename;
     exports.EVENT_CHANGE            = EVENT_CHANGE;
     exports.EVENT_SHOULD_SELECT     = EVENT_SHOULD_SELECT;
     exports.EVENT_SHOULD_FOCUS      = EVENT_SHOULD_FOCUS;
     exports.ERROR_CREATION          = ERROR_CREATION;
     exports.ERROR_INVALID_FILENAME  = ERROR_INVALID_FILENAME;
+    exports.ERROR_NOT_IN_PROJECT    = ERROR_NOT_IN_PROJECT;
     exports.FILE_RENAMING           = FILE_RENAMING;
     exports.FILE_CREATING           = FILE_CREATING;
     exports.RENAME_CANCELLED        = RENAME_CANCELLED;

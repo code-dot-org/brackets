@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 Adobe Systems Incorporated. All rights reserved.
+ * Copyright (c) 2012 - present Adobe Systems Incorporated. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,10 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  *
  */
-
-
-/*jslint vars: true, plusplus: true, devel: true, nomen: true, indent: 4, maxerr: 50 */
-/*global define, $, window */
 
 /**
  * EditorManager owns the UI for the editor area. This essentially mirrors the 'current document'
@@ -70,8 +66,8 @@ define(function (require, exports, module) {
         InlineTextEditor    = require("editor/InlineTextEditor").InlineTextEditor,
         Strings             = require("strings"),
         LanguageManager     = require("language/LanguageManager"),
-        DeprecationWarning  = require("utils/DeprecationWarning");
-
+        DeprecationWarning  = require("utils/DeprecationWarning"),
+        InlineProviderIndicator = require("editor/InlineProviderIndicator");
 
     /**
      * Currently focused Editor (full-size, inline, or otherwise)
@@ -123,8 +119,6 @@ define(function (require, exports, module) {
         return doc && doc._masterEditor;
     }
 
-
-
     /**
      * Updates _viewStateCache from the given editor's actual current state
      * @private
@@ -147,6 +141,31 @@ define(function (require, exports, module) {
         }
     }
 
+    /**
+     * Finds out if an editor provider exists for the given editor and position or not.
+     */
+    function _queryEditorProviders(editor) {
+        var pos = editor.getCursorPos();
+        var providers = _inlineEditProviders;
+
+        for (var i = 0, len = providers.length; i < len; i++) {
+            var query = providers[i].provider.query;
+            if(query && query(editor, pos)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function _checkCurrentPositionForProviders(e) {
+        var editor = e.target;
+        var editorProviderAvailable = _queryEditorProviders(editor);
+        if(editorProviderAvailable) {
+            InlineProviderIndicator.show(editor);
+        } else {
+            InlineProviderIndicator.hide();
+        }
+    }
 
 	/**
      * Editor focus handler to change the currently active editor
@@ -161,6 +180,15 @@ define(function (require, exports, module) {
         }
         var previous = _lastFocusedEditor;
         _lastFocusedEditor = current;
+
+        // XXXBramble: wire cursor activity listener on this editor (removing old one)
+        // so that we can inform users of inline editor and doc providers.
+        if(previous) {
+            previous.off("cursorActivity", _checkCurrentPositionForProviders);
+        }
+        if(current) {
+            current.on("cursorActivity", _checkCurrentPositionForProviders);
+        }
 
         exports.trigger("activeEditorChange", current, previous);
     }
@@ -192,11 +220,16 @@ define(function (require, exports, module) {
      * @param {!jQueryObject} container  Container to add the editor to.
      * @param {{startLine: number, endLine: number}=} range If specified, range of lines within the document
      *          to display in this editor. Inclusive.
+     * @param {!Object} editorOptions If specified, contains editor options that can be passed to CodeMirror
      * @return {Editor} the newly created editor.
      */
-    function _createEditorForDocument(doc, makeMasterEditor, container, range) {
-        var readOnly = PreferencesManager.get("readOnly");
-        var editor = new Editor(doc, makeMasterEditor, container, range, readOnly);
+    function _createEditorForDocument(doc, makeMasterEditor, container, range, editorOptions) {
+        // CDO-Bramble: always set editorOptions.isReadOnly
+        if (!editorOptions) {
+            editorOptions = {};
+        }
+        editorOptions.isReadOnly = PreferencesManager.get("readOnly");
+        var editor = new Editor(doc, makeMasterEditor, container, range, editorOptions);
 
         editor.on("focus", function () {
             _notifyActiveEditorChanged(editor);
@@ -261,6 +294,9 @@ define(function (require, exports, module) {
         // If one of them will provide a widget, show it inline once ready
         if (inlinePromise) {
             inlinePromise.done(function (inlineWidget) {
+                // XXXBramble: hide inline editor indicator if showing, and keep it closed until widget is closed
+                InlineProviderIndicator.disable();
+
                 editor.addInlineWidget(pos, inlineWidget).done(function () {
                     PerfUtils.addMeasurement(PerfUtils.INLINE_WIDGET_OPEN);
                     result.resolve();
@@ -304,6 +340,9 @@ define(function (require, exports, module) {
                 // an inline widget's editor has focus, so close it
                 PerfUtils.markStart(PerfUtils.INLINE_WIDGET_CLOSE);
                 inlineWidget.close().done(function () {
+                    // XXXBramble: re-enable inline editor indicator
+                    InlineProviderIndicator.enable();
+
                     PerfUtils.addMeasurement(PerfUtils.INLINE_WIDGET_CLOSE);
                     // return a resolved promise to CommandManager
                     result.resolve(false);
@@ -388,7 +427,17 @@ define(function (require, exports, module) {
             hostEditor.focus();
         }
 
+        // XXXBramble: re-enable inline editor indicator
+        InlineProviderIndicator.enable();
+
         return hostEditor.removeInlineWidget(inlineWidget);
+    }
+
+    /**
+     * A stub for editor and doc providers, which don't have a query function.
+     */
+    function defaultQueryFunction() {
+        return false;
     }
 
     /**
@@ -401,11 +450,23 @@ define(function (require, exports, module) {
      * @param {number=} priority
      * The provider returns a promise that will be resolved with an InlineWidget, or returns a string
      * indicating why the provider cannot respond to this case (or returns null to indicate no reason).
+     * @param {function(!Editor, !{line:number, ch:number}):?(boolean)} queryFunction
+     * An optional function used to query the provider to determine whether it could provide an editor
+     * for the given cursor position.
      */
-    function registerInlineEditProvider(provider, priority) {
+    function registerInlineEditProvider(provider, priority, queryFunction) {
+        if (typeof priority === "function") {
+            queryFunction = priority;
+            priority = 0;
+        }
+
         if (priority === undefined) {
             priority = 0;
         }
+
+        // Augment the provider with a query function
+        provider.query = queryFunction || defaultQueryFunction;
+
         _insertProviderSorted(_inlineEditProviders, provider, priority);
     }
 
@@ -424,7 +485,8 @@ define(function (require, exports, module) {
         if (priority === undefined) {
             priority = 0;
         }
-        _insertProviderSorted(_inlineDocsProviders, provider, priority);
+
+        _insertProviderSorted(_inlineDocsProviders, provider);
     }
 
     /**
@@ -472,11 +534,13 @@ define(function (require, exports, module) {
      * Semi-private: should only be called within this module or by Document.
      * @param {!Document} document  Document whose main/full Editor to create
      * @param {!Pane} pane  Pane in which the editor will be hosted
+     * @param {!Object} editorOptions If specified, contains editor options that
+     * can be passed to CodeMirror
      * @return {!Editor}
      */
-    function _createFullEditorForDocument(document, pane) {
+    function _createFullEditorForDocument(document, pane, editorOptions) {
         // Create editor; make it initially invisible
-        var editor = _createEditorForDocument(document, true, pane.$content);
+        var editor = _createEditorForDocument(document, true, pane.$content, undefined, editorOptions);
         editor.setVisible(false);
         pane.addView(editor);
         exports.trigger("_fullEditorCreatedForDocument", document, editor, pane.id);
@@ -503,6 +567,7 @@ define(function (require, exports, module) {
         // first and showing it after the visible range is set, we avoid that initial render.
         $(inlineContent).hide();
         var inlineEditor = _createEditorForDocument(doc, false, inlineContent, range);
+        inlineEditor._hostEditor = getCurrentFullEditor();
         $(inlineContent).show();
 
         return { content: inlineContent, editor: inlineEditor };
@@ -531,12 +596,22 @@ define(function (require, exports, module) {
      * Create and/or show the editor for the specified document
      * @param {!Document} document - document to edit
      * @param {!Pane} pane - pane to show it in
+     * @param {!Object} editorOptions - If specified, contains
+     * editor options that can be passed to CodeMirror
      * @private
      */
-    function _showEditor(document, pane) {
+    function _showEditor(document, pane, editorOptions) {
         // Ensure a main editor exists for this document to show in the UI
         var createdNewEditor = false,
             editor = document._masterEditor;
+
+        // Check if a master editor is not set already or the current master editor doesn't belong
+        // to the pane container requested - to support creation of multiple full editors
+        // This check is required as _masterEditor is the active full editor for the document
+        // and there can be existing full editor created for other panes
+        if (editor && editor._paneId && editor._paneId !== pane.id) {
+            editor = document._checkAssociatedEditorForPane(pane.id);
+        }
 
         if (!editor) {
             // Performance (see #4757) Chrome wastes time messing with selection
@@ -546,7 +621,7 @@ define(function (require, exports, module) {
             }
 
             // Editor doesn't exist: populate a new Editor with the text
-            editor = _createFullEditorForDocument(document, pane);
+            editor = _createFullEditorForDocument(document, pane, editorOptions);
             createdNewEditor = true;
         } else if (editor.$el.parent()[0] !== pane.$content[0]) {
             // editor does exist but is not a child of the pane so add it to the
@@ -619,13 +694,15 @@ define(function (require, exports, module) {
      * Opens the specified document in the given pane
      * @param {!Document} doc - the document to open
      * @param {!Pane} pane - the pane to open the document in
+     * @param {!Object} editorOptions - If specified, contains
+     * editor options that can be passed to CodeMirror
      * @return {boolean} true if the file can be opened, false if not
      */
-    function openDocument(doc, pane) {
+    function openDocument(doc, pane, editorOptions) {
         var perfTimerName = PerfUtils.markStart("EditorManager.openDocument():\t" + (!doc || doc.file.fullPath));
 
         if (doc && pane) {
-            _showEditor(doc, pane);
+            _showEditor(doc, pane, editorOptions);
         }
 
         PerfUtils.addMeasurement(perfTimerName);

@@ -8,63 +8,67 @@ define(function (require, exports, module) {
         Resizer             = brackets.getModule("utils/Resizer"),
         UrlParams           = brackets.getModule("utils/UrlParams").UrlParams,
         StatusBar           = brackets.getModule("widgets/StatusBar"),
-        Strings             = brackets.getModule("strings"),
         MainViewManager     = brackets.getModule("view/MainViewManager"),
         BrambleEvents       = brackets.getModule("bramble/BrambleEvents"),
         BrambleStartupState = brackets.getModule("bramble/StartupState"),
+        CommandManager      = brackets.getModule("command/CommandManager"),
         FileSystem          = brackets.getModule("filesystem/FileSystem"),
+        Sizes               = brackets.getModule("filesystem/impls/filer/lib/Sizes"),
         ViewCommandHandlers = brackets.getModule("view/ViewCommandHandlers"),
         SidebarView         = brackets.getModule("project/SidebarView"),
         WorkspaceManager    = brackets.getModule("view/WorkspaceManager"),
-        PreferencesManager  = brackets.getModule("preferences/PreferencesManager");
+        PreferencesManager  = brackets.getModule("preferences/PreferencesManager"),
+        Dialogs             = brackets.getModule("widgets/Dialogs"),
+        DefaultDialogs      = brackets.getModule("widgets/DefaultDialogs"),
+        Strings             = brackets.getModule("strings"),
+        StringUtils         = brackets.getModule("utils/StringUtils");
 
     var PhonePreview  = require("text!lib/Mobile.html");
     var PostMessageTransport = require("lib/PostMessageTransport");
-    var IframeBrowser = require("lib/iframe-browser");
-    var Compatibility = require("lib/compatibility");
-    var Theme = require("lib/Theme");
 
     var isMobileViewOpen = false;
+
+    var DEFAULT_PROJECT_SIZE_LIMIT_FORMATTED = Sizes.formatBytes(Sizes.DEFAULT_PROJECT_SIZE_LIMIT);
 
     /**
      * This function calls all the hide functions and listens
      * for bramble to be loaded
      */
     function initUI(callback) {
-        // The FileSystemCache is ready - refresh in case the editor views
+        // CDO-Bramble: The FileSystemCache is ready - refresh in case the editor views
         // loaded before the cached blobs were created
         MainViewManager.refreshCurrentPaneViews();
 
-        addLivePreviewButton(function() {
-            toggleMobileViewButton();
+        // Check to see if there is more than 1 file in the project folder
+        var root = BrambleStartupState.project("root");
+        FileSystem.getDirectoryForPath(root).getContents(function(err, contents) {
+            if(err) {
+                return callback(err);
+            }
 
-            // Check to see if there is more than 1 file in the project folder
-            var root = BrambleStartupState.project("root");
-            FileSystem.getDirectoryForPath(root).getContents(function(err, contents) {
-                if(shouldHideUI()) {
-                    removeTitleBar();
-                    removeMainToolBar();
-                    removeLeftSideToolBar();
-                    removeRightSideToolBar();
-                    removeStatusBar();
+            if(shouldHideUI()) {
+                removeTitleBar();
+                removeMainToolBar();
+                removeLeftSideToolBar();
+                removeRightSideToolBar();
+                removeStatusBar();
 
-                    /* XXX cdo disabled
-                    // If there's only 1 file in the project, hide the sidebar
-                    if(contents && contents.length === 1) {
-                        SidebarView.hide();
-                    }
-                    */
+                /* CDO-Bramble: Don't hide sidebar
+                // If there's only 1 file in the project, hide the sidebar
+                if(contents && contents.length === 1) {
+                    SidebarView.hide();
                 }
+                */
+            }
 
-                // Restore any UI defaults cached in the client
-                restoreState();
+            // Restore any UI defaults cached in the client
+            restoreState();
 
-                // Show the editor, remove spinner
-                $("#spinner-container").remove();
-                $("#main-view").css("visibility", "visible");
+            // Show the editor, remove spinner
+            $("#spinner-container").remove();
+            $("#main-view").css("visibility", "visible");
 
-                callback();
-            });
+            callback();
         });
     }
 
@@ -72,10 +76,6 @@ define(function (require, exports, module) {
      * Restores user state sent from the hosting app
      */
     function restoreState() {
-        // Load the two theme extensions outside of
-        // the ExtensionLoader logic (avoids circular dependencies)
-        Theme.init(BrambleStartupState.ui("theme"));
-
         var previewMode = BrambleStartupState.ui("previewMode");
         if(previewMode) {
             switch(previewMode) {
@@ -95,6 +95,37 @@ define(function (require, exports, module) {
             PreferencesManager.set("wordWrap", wordWrap);
         }
 
+        var autoCloseTags = BrambleStartupState.ui("autoCloseTags") || { whenOpening: true, whenClosing: true, indentTags: [] };
+        PreferencesManager.set("closeTags", autoCloseTags);
+
+        var openSVGasXML = BrambleStartupState.ui("openSVGasXML");
+        if(typeof openSVGasXML === "boolean") {
+            PreferencesManager.set("openSVGasXML", openSVGasXML);
+        }
+
+        var allowJavaScript = BrambleStartupState.ui("allowJavaScript");
+        if(typeof allowJavaScript === "boolean") {
+            PreferencesManager.set("allowJavaScript", allowJavaScript);
+        }
+
+        var allowWhiteSpace = BrambleStartupState.ui("allowWhiteSpace");
+        if(typeof allowWhiteSpace === "boolean") {
+            PreferencesManager.getExtensionPrefs("denniskehrig.ShowWhitespace").set("enabled", allowWhiteSpace);
+        }
+
+        var allowAutocomplete = BrambleStartupState.ui("allowAutocomplete");
+        if(typeof allowAutocomplete === "boolean") {
+            PreferencesManager.set("codehint.AttrHints", allowAutocomplete);
+            PreferencesManager.set("codehint.TagHints", allowAutocomplete);
+            PreferencesManager.set("codehint.JSHints", allowAutocomplete);
+            PreferencesManager.set("codehint.CssPropHints", allowAutocomplete);
+        }
+
+        var autoUpdate = BrambleStartupState.ui("autoUpdate");
+        if(typeof autoUpdate === "boolean") {
+            PreferencesManager.set("autoUpdate", autoUpdate);
+        }
+
         var sidebarWidth = BrambleStartupState.ui("sidebarWidth");
         if(sidebarWidth) {
             SidebarView.resize(sidebarWidth);
@@ -109,10 +140,17 @@ define(function (require, exports, module) {
             }
         }
 
+        var secondPaneWidth = BrambleStartupState.ui("secondPaneWidth");
         var firstPaneWidth = BrambleStartupState.ui("firstPaneWidth");
+
+        firstPaneWidth = firstPaneWidth * 100 / (
+                         ((firstPaneWidth)? firstPaneWidth : 0) +
+                         ((secondPaneWidth)? secondPaneWidth : 0)); // calculate width in %
+
         if(firstPaneWidth) {
-            $("#first-pane").width(firstPaneWidth);
+            $("#first-pane").width((firstPaneWidth + "%"));
         }
+
 
         var fontSize = BrambleStartupState.ui("fontSize");
         if(fontSize && /\d+px/.test(fontSize)) {
@@ -208,19 +246,13 @@ define(function (require, exports, module) {
     function disableFullscreenPreview() {
         $("#main-view").removeClass("fullscreen-preview");
         MainViewManager.setActivePaneId("first-pane");
+        BrambleEvents.triggerFullscreeDisabled();
     }
 
     function showDesktopView(preventReload) {
         if(!isMobileViewOpen) {
             return;
         }
-
-        // Switch the icon
-        $("#mobileViewButton").removeClass("desktopButton");
-        $("#mobileViewButton").addClass("mobileButton");
-        // Updates the tooltip
-        StatusBar.updateIndicator("mobileViewButtonBox", true, "",
-                                  "Click to open preview in a mobile view");
 
         $("#bramble-iframe-browser").appendTo("#second-pane");
         $(".phone-wrapper").detach();
@@ -240,13 +272,6 @@ define(function (require, exports, module) {
             return;
         }
 
-        // Switch the icon
-        $("#mobileViewButton").removeClass("mobileButton");
-        $("#mobileViewButton").addClass("desktopButton");
-        // Updates the tooltip
-        StatusBar.updateIndicator("mobileViewButtonBox", true, "",
-                                  "Click to open preview in a desktop view");
-
         $("#bramble-iframe-browser").addClass("phone-body");
         $("#second-pane").append(PhonePreview);
         $("#bramble-iframe-browser").appendTo("#phone-content");
@@ -265,74 +290,36 @@ define(function (require, exports, module) {
     }
 
     /**
-     * Used to add a button to the status bar to toggle
-     * between mobile view and desktop view.
-     */
-    function toggleMobileViewButton() {
-        var mobileView = Mustache.render("<div><a id='mobileViewButton' href=#></a></div>", Strings);
-        StatusBar.addIndicator("mobileViewButtonBox", $(mobileView), true, "",
-                               "Click to open preview in a mobile view", "status-overwrite");
-        $("#mobileViewButton").addClass("mobileButton");
-
-        $("#mobileViewButton").click(function () {
-            if(!isMobileViewOpen) {
-                showMobileView();
-            } else {
-                showDesktopView();
-            }
-        });
-    }
-
-    /**
-     * Used to add a button to the status bar for the
-     * detached live preview.
-     * For IE 11, we show the detach button, but only changes
-     * to code that trigger a reload will show up in the detached
-     * window.
-     * For IE <11, we do not show the detach button
-     */
-    function addLivePreviewButton(callback) {
-        var livePreview = Mustache.render("<div><a id='liveDevButton' href=#></a></div>", Strings);
-        StatusBar.addIndicator("liveDevButtonBox", $(livePreview), true, "",
-                               "Click to open preview in separate window", "mobileViewButtonBox");
-        $("#liveDevButton").addClass("liveDevButtonDetach");
-
-        $("#liveDevButton").click(function () {
-            Resizer.makeResizable("#second-pane");
-
-            // Checks if the attached preview is visible.
-            // If it is, the attached preview is hidden
-            // and the detached preview is opened.
-            if(Resizer.isVisible("#second-pane")) {
-                IframeBrowser.detachPreview();
-            }
-            else {
-                IframeBrowser.attachPreview();
-            }
-        });
-
-        Compatibility.supportsIFrameHTMLBlobURL(function(err, isCompatible) {
-            if(err) {
-                console.error("[Brackets IFrame-Browser] Unexpected error:", err);
-                return callback();
-            }
-
-            // If we are in IE v<11, we hide the detachable preview button
-            if(!isCompatible && document.all) {
-                $("#liveDevButton").css("display", "none");
-                console.log("[Brackets IFrame-Browser] Detachable preview disabled due to incompatibility with current browser (you are possibly running IE 10 or below)");
-            }
-
-            callback();
-        });
-    }
-
-    /**
      * Which preview mode we're in, "desktop" or "mobile"
      */
     function getPreviewMode() {
         return isMobileViewOpen ? "mobile" : "desktop";
     }
+
+    /**
+     * Update File Tree size info when the project's files changes on disk
+     */
+    function setProjectSizeInfo(info) {
+        var currentSize = Sizes.formatBytes(info.size);
+
+        // Normalize to between 0 - 100%
+        var percentUsed = (Math.max(Math.min(info.percentUsed * 100, 100), 0)).toFixed(2) + "%";
+
+        SidebarView._updateProjectSizeIndicator(currentSize, DEFAULT_PROJECT_SIZE_LIMIT_FORMATTED, percentUsed);
+    }
+
+    /**
+     * Show the user an error dialog, indicating that the project has exceeded the max amount of disk space.
+     */
+    function showProjectSizeErrorDialog() {
+        return Dialogs.showModalDialog(
+            DefaultDialogs.DIALOG_ID_ERROR,
+            Strings.ERROR_OUT_OF_SPACE_TITLE,
+            Strings.ERROR_PROJECT_SIZE_EXCEEDED
+        ).getPromise();
+    }
+
+    CommandManager.registerInternal("bramble.projectSizeError", showProjectSizeErrorDialog);
 
     // Define public API
     exports.initUI                 = initUI;
@@ -344,4 +331,5 @@ define(function (require, exports, module) {
     exports.removeLeftSideToolBar  = removeLeftSideToolBar;
     exports.removeMainToolBar      = removeMainToolBar;
     exports.removeRightSideToolBar = removeRightSideToolBar;
+    exports.setProjectSizeInfo     = setProjectSizeInfo;
 });

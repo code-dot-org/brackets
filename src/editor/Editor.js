@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 Adobe Systems Incorporated. All rights reserved.
+ * Copyright (c) 2012 - present Adobe Systems Incorporated. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,10 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  *
  */
-
-
-/*jslint vars: true, plusplus: true, devel: true, nomen: true, indent: 4, maxerr: 50 */
-/*global define, $, window */
 
 /**
  * Editor is a 1-to-1 wrapper for a CodeMirror editor instance. It layers on Brackets-specific
@@ -75,10 +71,12 @@ define(function (require, exports, module) {
         PerfUtils          = require("utils/PerfUtils"),
         PopUpManager       = require("widgets/PopUpManager"),
         PreferencesManager = require("preferences/PreferencesManager"),
+        Strings            = require("strings"),
         TextRange          = require("document/TextRange").TextRange,
         TokenUtils         = require("utils/TokenUtils"),
         ValidationUtils    = require("utils/ValidationUtils"),
         ViewUtils          = require("utils/ViewUtils"),
+        MainViewManager    = require("view/MainViewManager"),
         _                  = require("thirdparty/lodash");
 
     /** Editor preferences */
@@ -86,6 +84,7 @@ define(function (require, exports, module) {
         CLOSE_TAGS          = "closeTags",
         DRAG_DROP           = "dragDropText",
         HIGHLIGHT_MATCHES   = "highlightMatches",
+        LINEWISE_COPY_CUT   = "lineWiseCopyCut",
         SCROLL_PAST_END     = "scrollPastEnd",
         SHOW_CURSOR_SELECT  = "showCursorWhenSelecting",
         SHOW_LINE_NUMBERS   = "showLineNumbers",
@@ -96,7 +95,11 @@ define(function (require, exports, module) {
         TAB_SIZE            = "tabSize",
         UPPERCASE_COLORS    = "uppercaseColors",
         USE_TAB_CHAR        = "useTabChar",
-        WORD_WRAP           = "wordWrap";
+        WORD_WRAP           = "wordWrap",
+        INDENT_LINE_COMMENT = "indentLineComment",
+        ALLOW_JAVASCRIPT    = "allowJavaScript",
+        AUTO_UPDATE         = "autoUpdate";
+    
 
     var cmOptions         = {};
 
@@ -116,6 +119,7 @@ define(function (require, exports, module) {
     cmOptions[CLOSE_TAGS]         = "autoCloseTags";
     cmOptions[DRAG_DROP]          = "dragDrop";
     cmOptions[HIGHLIGHT_MATCHES]  = "highlightSelectionMatches";
+    cmOptions[LINEWISE_COPY_CUT]  = "lineWiseCopyCut";
     cmOptions[SCROLL_PAST_END]    = "scrollPastEnd";
     cmOptions[SHOW_CURSOR_SELECT] = "showCursorWhenSelecting";
     cmOptions[SHOW_LINE_NUMBERS]  = "lineNumbers";
@@ -125,26 +129,103 @@ define(function (require, exports, module) {
     cmOptions[TAB_SIZE]           = "tabSize";
     cmOptions[USE_TAB_CHAR]       = "indentWithTabs";
     cmOptions[WORD_WRAP]          = "lineWrapping";
+    cmOptions[ALLOW_JAVASCRIPT]   = "allowJavaScript";
 
-    PreferencesManager.definePreference(CLOSE_BRACKETS,     "boolean", false);
-    PreferencesManager.definePreference(CLOSE_TAGS,         "Object", { whenOpening: true, whenClosing: true, indentTags: [] });
-    PreferencesManager.definePreference(DRAG_DROP,          "boolean", false);
-    PreferencesManager.definePreference(HIGHLIGHT_MATCHES,  "boolean", false);
-    PreferencesManager.definePreference(SCROLL_PAST_END,    "boolean", false);
-    PreferencesManager.definePreference(SHOW_CURSOR_SELECT, "boolean", false);
-    PreferencesManager.definePreference(SHOW_LINE_NUMBERS,  "boolean", true);
-    PreferencesManager.definePreference(SMART_INDENT,       "boolean", true);
-    PreferencesManager.definePreference(SOFT_TABS,          "boolean", true);
+    PreferencesManager.definePreference(CLOSE_BRACKETS,     "boolean", true, {
+        description: Strings.DESCRIPTION_CLOSE_BRACKETS
+    });
+    PreferencesManager.definePreference(CLOSE_TAGS,         "object", { whenOpening: true, whenClosing: true, indentTags: [] }, {
+        description: Strings.DESCRIPTION_CLOSE_TAGS,
+        keys: {
+            dontCloseTags: {
+                type: "array",
+                description: Strings.DESCRIPTION_CLOSE_TAGS_DONT_CLOSE_TAGS
+            },
+            whenOpening: {
+                type: "boolean",
+                description: Strings.DESCRIPTION_CLOSE_TAGS_WHEN_OPENING,
+                initial: true
+            },
+            whenClosing: {
+                type: "boolean",
+                description: Strings.DESCRIPTION_CLOSE_TAGS_WHEN_CLOSING,
+                initial: true
+            },
+            indentTags: {
+                type: "array",
+                description: Strings.DESCRIPTION_CLOSE_TAGS_INDENT_TAGS
+            }
+        }
+    });
+    PreferencesManager.definePreference(DRAG_DROP,          "boolean", false, {
+        description: Strings.DESCRIPTION_DRAG_DROP_TEXT
+    });
+    PreferencesManager.definePreference(HIGHLIGHT_MATCHES,  "boolean", false, {
+        description: Strings.DESCRIPTION_HIGHLIGHT_MATCHES,
+        keys: {
+            showToken: {
+                type: "boolean",
+                description: Strings.DESCRIPTION_HIGHLIGHT_MATCHES_SHOW_TOKEN,
+                initial: false
+            },
+            wordsOnly: {
+                type: "boolean",
+                description: Strings.DESCRIPTION_HIGHLIGHT_MATCHES_WORDS_ONLY,
+                initial: false
+            }
+        }
+    });
+    PreferencesManager.definePreference(LINEWISE_COPY_CUT,  "boolean", true, {
+        description: Strings.DESCRIPTION_LINEWISE_COPY_CUT
+    });
+    PreferencesManager.definePreference(SCROLL_PAST_END,    "boolean", false, {
+        description: Strings.DESCRIPTION_SCROLL_PAST_END
+    });
+    PreferencesManager.definePreference(SHOW_CURSOR_SELECT, "boolean", false, {
+        description: Strings.DESCRIPTION_SHOW_CURSOR_WHEN_SELECTING
+    });
+    PreferencesManager.definePreference(SHOW_LINE_NUMBERS,  "boolean", true, {
+        description: Strings.DESCRIPTION_SHOW_LINE_NUMBERS
+    });
+    PreferencesManager.definePreference(SMART_INDENT,       "boolean", true, {
+        description: Strings.DESCRIPTION_SMART_INDENT
+    });
+    PreferencesManager.definePreference(SOFT_TABS,          "boolean", true, {
+        description: Strings.DESCRIPTION_SOFT_TABS
+    });
     PreferencesManager.definePreference(SPACE_UNITS,        "number", DEFAULT_SPACE_UNITS, {
-        validator: _.partialRight(ValidationUtils.isIntegerInRange, MIN_SPACE_UNITS, MAX_SPACE_UNITS)
+        validator: _.partialRight(ValidationUtils.isIntegerInRange, MIN_SPACE_UNITS, MAX_SPACE_UNITS),
+        description: Strings.DESCRIPTION_SPACE_UNITS
     });
-    PreferencesManager.definePreference(STYLE_ACTIVE_LINE,  "boolean", false);
+    PreferencesManager.definePreference(STYLE_ACTIVE_LINE,  "boolean", false, {
+        description: Strings.DESCRIPTION_STYLE_ACTIVE_LINE
+    });
     PreferencesManager.definePreference(TAB_SIZE,           "number", DEFAULT_TAB_SIZE, {
-        validator: _.partialRight(ValidationUtils.isIntegerInRange, MIN_TAB_SIZE, MAX_TAB_SIZE)
+        validator: _.partialRight(ValidationUtils.isIntegerInRange, MIN_TAB_SIZE, MAX_TAB_SIZE),
+        description: Strings.DESCRIPTION_TAB_SIZE
     });
-    PreferencesManager.definePreference(UPPERCASE_COLORS,   "boolean", false);
-    PreferencesManager.definePreference(USE_TAB_CHAR,       "boolean", false);
-    PreferencesManager.definePreference(WORD_WRAP,          "boolean", true);
+    PreferencesManager.definePreference(UPPERCASE_COLORS,   "boolean", false, {
+        description: Strings.DESCRIPTION_UPPERCASE_COLORS
+    });
+    PreferencesManager.definePreference(USE_TAB_CHAR,       "boolean", false, {
+        description: Strings.DESCRIPTION_USE_TAB_CHAR
+    });
+    PreferencesManager.definePreference(WORD_WRAP,          "boolean", true, {
+        description: Strings.DESCRIPTION_WORD_WRAP
+    });
+    
+    PreferencesManager.definePreference(INDENT_LINE_COMMENT,  "boolean", false, {
+        description: Strings.DESCRIPTION_INDENT_LINE_COMMENT
+    });
+
+    PreferencesManager.definePreference(ALLOW_JAVASCRIPT,     "boolean", true, {
+        description: Strings.DESCRIPTION_ALLOW_JAVASCRIPT
+    });
+
+    PreferencesManager.definePreference(AUTO_UPDATE,         "boolean", true, {
+        description: Strings.DESCRIPTION_AUTO_UPDATE
+    });
+
 
     var editorOptions = Object.keys(cmOptions);
 
@@ -221,10 +302,12 @@ define(function (require, exports, module) {
      * @param {!jQueryObject|DomNode} container  Container to add the editor to.
      * @param {{startLine: number, endLine: number}=} range If specified, range of lines within the document
      *          to display in this editor. Inclusive.
-     * @param {boolean} readOnly If specified and true, editor will be created in read only mode.
+     * @param {!Object} options If specified, contains editor options that can be passed to CodeMirror
      */
-    function Editor(document, makeMasterEditor, container, range, readOnly) {
+    function Editor(document, makeMasterEditor, container, range, options) {
         var self = this;
+
+        var isReadOnly = options && options.isReadOnly;
 
         _instances.push(this);
 
@@ -247,9 +330,12 @@ define(function (require, exports, module) {
         this._handleDocumentChange = this._handleDocumentChange.bind(this);
         this._handleDocumentDeleted = this._handleDocumentDeleted.bind(this);
         this._handleDocumentLanguageChanged = this._handleDocumentLanguageChanged.bind(this);
+        this._doWorkingSetSync = this._doWorkingSetSync.bind(this);
         document.on("change", this._handleDocumentChange);
         document.on("deleted", this._handleDocumentDeleted);
         document.on("languageChanged", this._handleDocumentLanguageChanged);
+        // To sync working sets if the view is for same doc across panes
+        document.on("_dirtyFlagChange", this._doWorkingSetSync);
 
         var mode = this._getModeFromDocument();
 
@@ -261,6 +347,12 @@ define(function (require, exports, module) {
         this._lastEditorWidth = null;
 
         this._$messagePopover = null;
+
+        // To track which pane the editor is being attached to if it's a full editor
+        this._paneId = null;
+        
+        // To track the parent editor ( host editor at that time of creation) of an inline editor
+        this._hostEditor = null;
 
         // Editor supplies some standard keyboard behavior extensions of its own
         var codeMirrorKeyMap = {
@@ -321,15 +413,17 @@ define(function (require, exports, module) {
             indentWithTabs              : currentOptions[USE_TAB_CHAR],
             inputStyle                  : "textarea", // the "contenteditable" mode used on mobiles could cause issues
             lineNumbers                 : currentOptions[SHOW_LINE_NUMBERS],
+            lineWiseCopyCut             : currentOptions[LINEWISE_COPY_CUT],
             lineWrapping                : currentOptions[WORD_WRAP],
+            allowJavaScript             : currentOptions[ALLOW_JAVASCRIPT],
             matchBrackets               : { maxScanLineLength: 50000, maxScanLines: 1000 },
             matchTags                   : { bothTags: true },
-            readOnly                    : readOnly,
             scrollPastEnd               : !range && currentOptions[SCROLL_PAST_END],
             showCursorWhenSelecting     : currentOptions[SHOW_CURSOR_SELECT],
             smartIndent                 : currentOptions[SMART_INDENT],
             styleActiveLine             : currentOptions[STYLE_ACTIVE_LINE],
-            tabSize                     : currentOptions[TAB_SIZE]
+            tabSize                     : currentOptions[TAB_SIZE],
+            readOnly                    : isReadOnly
         });
 
         // Can't get CodeMirror's focused state without searching for
@@ -347,6 +441,15 @@ define(function (require, exports, module) {
         });
         this.on("change", function (event, editor, changeList) {
             self._handleEditorChange(changeList);
+        });
+        this.on("focus", function (event, editor) {
+            if (self._hostEditor) {
+                // Mark the host editor as the master editor for the hosting document
+                self._hostEditor.document._toggleMasterEditor(self._hostEditor);
+            } else {
+                // Set this full editor as master editor for the document
+                self.document._toggleMasterEditor(self);
+            }
         });
 
         // Set code-coloring mode BEFORE populating with text, to avoid a flash of uncolored text
@@ -386,6 +489,24 @@ define(function (require, exports, module) {
     EventDispatcher.makeEventDispatcher(Editor.prototype);
     EventDispatcher.markDeprecated(Editor.prototype, "keyEvent", "'keydown/press/up'");
 
+    Editor.prototype.markPaneId = function (paneId) {
+        this._paneId = paneId;
+
+        // Also add this to the pool of full editors
+        this.document._associateEditor(this);
+
+        // In case this Editor is initialized not as the first full editor for the document
+        // and the document is already dirty and present in another working set, make sure
+        // to add this documents to the new panes working set.
+        this._doWorkingSetSync(null, this.document);
+    };
+
+    Editor.prototype._doWorkingSetSync = function (event, doc) {
+        if (doc === this.document && this._paneId && this.document.isDirty) {
+            MainViewManager.addToWorkingSet(this._paneId, this.document.file, -1, false);
+        }
+    };
+
     /**
      * Removes this editor from the DOM and detaches from the Document. If this is the "master"
      * Editor that is secretly providing the Document's backing state, then the Document reverts to
@@ -405,6 +526,7 @@ define(function (require, exports, module) {
         this.document.off("change", this._handleDocumentChange);
         this.document.off("deleted", this._handleDocumentDeleted);
         this.document.off("languageChanged", this._handleDocumentLanguageChanged);
+        this.document.off("_dirtyFlagChange", this._doWorkingSetSync);
 
         if (this._visibleRange) {   // TextRange also refs the Document
             this._visibleRange.dispose();
@@ -413,6 +535,8 @@ define(function (require, exports, module) {
         // If we're the Document's master editor, disconnecting from it has special meaning
         if (this.document._masterEditor === this) {
             this.document._makeNonEditable();
+        } else {
+            this.document._disassociateEditor(this);
         }
 
         // Destroying us destroys any inline widgets we're hosting. Make sure their closeCallbacks
@@ -898,6 +1022,7 @@ define(function (require, exports, module) {
         this._codeMirror.on("focus", function () {
             self._focused = true;
             self.trigger("focus", self);
+            
         });
 
         this._codeMirror.on("blur", function () {
@@ -919,6 +1044,13 @@ define(function (require, exports, module) {
                 event.preventDefault();
             }
         });
+        // For word wrap. Code adapted from https://codemirror.net/demo/indentwrap.html#
+        this._codeMirror.on("renderLine", function (cm, line, elt) {
+            var charWidth = self._codeMirror.defaultCharWidth();
+            var off = CodeMirror.countColumn(line.text, null, cm.getOption("tabSize")) * charWidth;
+            elt.style.textIndent = "-" + off + "px";
+            elt.style.paddingLeft = off + "px";
+        });
     };
 
     /**
@@ -927,6 +1059,16 @@ define(function (require, exports, module) {
      * @param {!string} text
      */
     Editor.prototype._resetText = function (text) {
+        var currentText = this._codeMirror.getValue();
+
+        // compare with ignoring line-endings, issue #11826
+        var textLF = text ? text.replace(/(\r\n|\r|\n)/g, "\n") : null;
+        var currentTextLF = currentText ? currentText.replace(/(\r\n|\r|\n)/g, "\n") : null;
+        if (textLF === currentTextLF) {
+            // there's nothing to reset
+            return;
+        }
+
         var perfTimerName = PerfUtils.markStart("Editor._resetText()\t" + (!this.document || this.document.file.fullPath));
 
         var cursorPos = this.getCursorPos(),
@@ -2409,6 +2551,36 @@ define(function (require, exports, module) {
     };
 
     /**
+     * Sets lineCommentIndent option.
+     * 
+     * @param {boolean} value
+     * @param {string=} fullPath Path to file to get preference for
+     * @return {boolean} true if value was valid
+     */
+    Editor.setIndentLineComment = function (value, fullPath) {
+        var options = fullPath && {context: fullPath};
+        return PreferencesManager.set(INDENT_LINE_COMMENT, value, options);
+    };
+    
+    /**
+     * Returns true if word wrap is enabled for the specified or current file
+     * @param {string=} fullPath Path to file to get preference for
+     * @return {boolean}
+     */
+    Editor.getIndentLineComment = function (fullPath) {
+        return PreferencesManager.get(INDENT_LINE_COMMENT, _buildPreferencesContext(fullPath));
+    };
+    
+    Editor.setAllowJavaScript = function (value, fullPath) {
+        var options = fullPath && {context: fullPath};
+        return PreferencesManager.set(ALLOW_JAVASCRIPT, value, options);
+    };
+
+    Editor.getAllowJavaScript = function (fullPath) {
+        return PreferencesManager.get(ALLOW_JAVASCRIPT, _buildPreferencesContext(fullPath));
+    };
+
+    /**
      * Runs callback for every Editor instance that currently exists
      * @param {!function(!Editor)} callback
      */
@@ -2446,21 +2618,6 @@ define(function (require, exports, module) {
             });
         });
     });
-
-    /**
-     * @private
-     *
-     * Manage the conversion from old-style localStorage prefs to the new file-based ones.
-     */
-    function _convertPreferences() {
-        var rules = {};
-        editorOptions.forEach(function (setting) {
-            rules[setting] = "user";
-        });
-        PreferencesManager.convertPreferences(module, rules);
-    }
-
-    _convertPreferences();
 
     // Define public API
     exports.Editor                  = Editor;

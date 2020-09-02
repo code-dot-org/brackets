@@ -11,14 +11,20 @@ define(function (require, exports, module) {
     var StartupState    = require("bramble/StartupState");
     var JSZip           = require("thirdparty/jszip/dist/jszip.min");
     var FileSystemCache = require("filesystem/impls/filer/FileSystemCache");
+    var FileSystem      = require("filesystem/FileSystem");
     var Filer           = require("filesystem/impls/filer/BracketsFiler");
+    var FilerUtils      = require("filesystem/impls/filer/FilerUtils");
     var saveAs          = require("thirdparty/FileSaver");
+    var Dialogs         = require("widgets/Dialogs");
+    var DefaultDialogs  = require("widgets/DefaultDialogs");
+    var Strings         = require("strings");
+    var StringUtils     = require("utils/StringUtils");
     var Buffer          = Filer.Buffer;
     var Path            = Filer.Path;
     var fs              = Filer.fs();
 
     // Mac and Windows clutter zip files with extra files/folders we don't need
-    function _skipFile(filename) {
+    function skipFile(filename) {
         var basename = Path.basename(filename);
 
         // Skip OS X additions we don't care about in the browser fs
@@ -51,14 +57,13 @@ define(function (require, exports, module) {
 
     function _refreshFilesystem(callback) {
         // Update the file tree to show the new files
-        CommandManager.execute(Commands.FILE_REFRESH).always(function() {
-            // Generate Blob URLs for all the files we imported
-            FileSystemCache.refresh(callback);
-        });
+        CommandManager.execute(Commands.FILE_REFRESH).always(callback);
     }
 
     // zipfile can be a path (string) to a zipfile, or raw binary data.
     function unzip(zipfile, options, callback) {
+        var projectPrefix = StartupState.project("zipFilenamePrefix").replace(/\/?$/, "/");
+
         if(typeof options === 'function') {
             callback = options;
             options = {};
@@ -71,7 +76,7 @@ define(function (require, exports, module) {
             return;
         }
 
-        var root = StartupState.project("root");
+        var root = options.root || StartupState.project("root");
         var destination = Path.resolve(options.destination || root);
 
         function _unzip(data){
@@ -80,17 +85,25 @@ define(function (require, exports, module) {
             var filenames = [];
 
             archive.filter(function(relPath, file) {
-                if(_skipFile(file.name)) {
+                if(skipFile(file.name)) {
                     return;
                 }
 
                 var isDir = file.options.dir;
+                var filename = removeThimbleProjectFolder(file.name);
                 filenames.push({
-                    absPath: Path.join(destination, file.name),
+                    absPath: Path.join(destination, filename),
                     isDirectory: isDir,
                     data: isDir ? null : new Buffer(file.asArrayBuffer())
                 });
             });
+
+            function removeThimbleProjectFolder(path) {
+                // Nuke root folder `thimble-project/`, or whatever zip prefix was passed in
+                // at startup, if exists so that project zip files can be re-imported without
+                // adding an unnecessary folder.
+                return path.replace(projectPrefix, "");
+            }
 
             function decompress(path, callback) {
                 var basedir = Path.dirname(path.absPath);
@@ -110,10 +123,11 @@ define(function (require, exports, module) {
                                 if(err) {
                                     return callback(err);
                                 }
-                                fs.writeFile(path.absPath, path.data, callback);
+
+                                FilerUtils.writeFileAsBinary(path.absPath, path.data, callback);
                             });
                         } else {
-                            fs.writeFile(path.absPath, path.data, callback);
+                            FilerUtils.writeFileAsBinary(path.absPath, path.data, callback);
                         }
                     });
                 }
@@ -124,46 +138,65 @@ define(function (require, exports, module) {
                     return callback(err);
                 }
 
-                _refreshFilesystem(callback);
+                _refreshFilesystem(function(err) {
+                    if(err) {
+                        return callback(err);
+                    }
+
+                    Dialogs.showModalDialog(
+                        DefaultDialogs.DIALOG_ID_INFO,
+                        Strings.DND_SUCCESS_UNZIP_TITLE
+                    ).getPromise().then(function() {
+                        callback(null);
+                    }, callback);
+                });
             });
         }
 
         if(typeof zipfile === "string") {
-            fs.readFile(Path.resolve(root, zipfile), function(err, data) {
-                if(err) {
-                    return callback(err);
-                }
-
-                _unzip(data);
-            });
+            FilerUtils
+                .readFileAsBinary(Path.resolve(root, zipfile))
+                .fail(callback)
+                .done(_unzip);
         } else {
             // zipfile is raw zip data, process it directly
             _unzip(zipfile);
         }
     }
 
-    // Zip the entire project, starting at the project root.
-    function archive(callback) {
+    // Zip specific file or folder structure, allowing an optional root name
+    // folder to be passed in and used as the zip filename as well.  Use "thimble-project/"
+    // or whatever is configured if a rootName isn't specified.
+    function archive(path, rootName, callback) {
         var root = StartupState.project("root");
-        var rootRegex = new RegExp("^" + root + "\/?");
+        var pathPrefix = path.replace(/\/?$/, "");
+
+        if(typeof rootName === "function") {
+            callback = rootName;
+            rootName = null;
+        }
+        rootName = (rootName || StartupState.project("zipFilenamePrefix")).replace(/\/?$/, "");
+        callback = callback || function() {};
+
+        var zipFilename = rootName + ".zip";
+        var rootFolder = rootName + "/";
 
         // TODO: we should try to move this to a worker
         var jszip = new JSZip();
 
         function toRelProjectPath(path) {
-            // Make path relative within the zip, rooted in a `project/` dir
-            return path.replace(rootRegex, "project/");
+            // Make path relative within the zip, rooted in a `thimble-project/` dir
+            return path.replace(pathPrefix, rootFolder);
         }
 
         function addFile(path, callback) {
-            fs.readFile(path, {encoding: null}, function(err, data) {
-                if(err) {
-                    return callback(err);
-                }
-
-                jszip.file(toRelProjectPath(path), data.buffer, {binary: true});
-                callback();
-            });
+            FilerUtils
+                .readFileAsBinary(path)
+                .fail(callback)
+                .done(function(data) {
+                    jszip.file(toRelProjectPath(path), data.buffer, {binary: true});
+                    callback();
+                });
         }
 
         function addDir(path, callback) {
@@ -194,28 +227,35 @@ define(function (require, exports, module) {
             });
         }
 
-        add(root, function(err) {
+        add(path, function(err) {
             if(err) {
                 return callback(err);
             }
-
+            // Prepare folder for download
             var compressed = jszip.generate({type: 'arraybuffer'});
             var blob = new Blob([compressed], {type: "application/zip"});
-            saveAs(blob, "project.zip");
+            saveAs(blob, zipFilename);
             callback();
         });
     }
 
-    function untar(tarArchive, callback) {
+    function untar(tarArchive, options, callback) {
+        if(typeof options === 'function') {
+            callback = options;
+            options = {};
+        }
+        options = options || {};
+        callback = callback || function(){};
+
         var untarWorker = new Worker("thirdparty/bitjs/bitjs-untar.min.js");
-        var root = StartupState.project("root");
+        var root = options.root || StartupState.project("root");
         var pending = null;
 
         function extract(path, data, callback) {
             path = Path.resolve(root, path);
             var basedir = Path.dirname(path);
 
-            if(_skipFile(path)) {
+            if(skipFile(path)) {
                 return callback();
             }
 
@@ -224,7 +264,7 @@ define(function (require, exports, module) {
                     return callback(err);
                 }
 
-                fs.writeFile(path, new Buffer(data), {encoding: null}, callback);
+                FilerUtils.writeFileAsBinary(path, new Buffer(data), callback);
             });
         }
 
@@ -232,7 +272,18 @@ define(function (require, exports, module) {
             untarWorker.terminate();
             untarWorker = null;
 
-            callback(err); 
+            _refreshFilesystem(function(err) {
+                if(err) {
+                    return callback(err);
+                }
+
+                Dialogs.showModalDialog(
+                    DefaultDialogs.DIALOG_ID_INFO,
+                    Strings.DND_SUCCESS_UNTAR_TITLE
+                ).getPromise().then(function() {
+                    callback(null);
+                }, callback);
+            });
         }
 
         function writeCallback(err) {
@@ -242,7 +293,7 @@ define(function (require, exports, module) {
 
             pending--;
             if(pending === 0) {
-                _refreshFilesystem(finish);
+                finish(err);
             }
         }
 
@@ -262,6 +313,7 @@ define(function (require, exports, module) {
         untarWorker.postMessage({file: tarArchive.buffer});
     }
 
+    exports.skipFile = skipFile;
     exports.archive = archive;
     exports.unzip = unzip;
     exports.untar = untar;

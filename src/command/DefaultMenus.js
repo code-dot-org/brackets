@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Adobe Systems Incorporated. All rights reserved.
+ * Copyright (c) 2013 - present Adobe Systems Incorporated. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,10 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  *
  */
-
-
-/*jslint vars: true, plusplus: true, devel: true, nomen: true, indent: 4, maxerr: 50, regexp: true */
-/*global define, $, brackets, window */
 
 /**
  * Initializes the default brackets menu items.
@@ -155,6 +151,8 @@ define(function (require, exports, module) {
         menu.addMenuDivider();
         menu.addMenuItem(Commands.NAVIGATE_NEXT_DOC);
         menu.addMenuItem(Commands.NAVIGATE_PREV_DOC);
+        menu.addMenuItem(Commands.NAVIGATE_NEXT_DOC_LIST_ORDER);
+        menu.addMenuItem(Commands.NAVIGATE_PREV_DOC_LIST_ORDER);
         menu.addMenuDivider();
         menu.addMenuItem(Commands.NAVIGATE_SHOW_IN_FILE_TREE);
         menu.addMenuDivider();
@@ -211,7 +209,6 @@ define(function (require, exports, module) {
 //            menu.addMenuItem(Commands.HELP_ABOUT);
 //        }
 
-
         /*
          * Context Menus
          */
@@ -246,8 +243,9 @@ define(function (require, exports, module) {
         var project_cmenu = Menus.registerContextMenu(Menus.ContextMenuIds.PROJECT_MENU);
         project_cmenu.addMenuItem(Commands.FILE_NEW);
 // CDO-Bramble: not something we want
-//        project_cmenu.addMenuItem(Commands.FILE_NEW_FOLDER);
+//      project_cmenu.addMenuItem(Commands.FILE_NEW_FOLDER);
         project_cmenu.addMenuItem(Commands.FILE_RENAME);
+        project_cmenu.addMenuItem(Commands.FILE_DOWNLOAD);
         project_cmenu.addMenuItem(Commands.FILE_DELETE);
 // XXXBramble: not something we want to support at the moment/ever
 //        project_cmenu.addMenuItem(Commands.NAVIGATE_SHOW_IN_OS);
@@ -259,12 +257,6 @@ define(function (require, exports, module) {
 
 // CDO-Bramble: disabling editor context menus so we can use native context menu with cut/copy/paste
 /*
-        var editor_cmenu = Menus.registerContextMenu(Menus.ContextMenuIds.EDITOR_MENU);
-        // editor_cmenu.addMenuItem(Commands.NAVIGATE_JUMPTO_DEFINITION);
-        editor_cmenu.addMenuItem(Commands.TOGGLE_QUICK_EDIT);
-        editor_cmenu.addMenuItem(Commands.TOGGLE_QUICK_DOCS);
-        editor_cmenu.addMenuItem(Commands.EDIT_SELECT_ALL);
-
         var inline_editor_cmenu = Menus.registerContextMenu(Menus.ContextMenuIds.INLINE_EDITOR_MENU);
         inline_editor_cmenu.addMenuItem(Commands.TOGGLE_QUICK_EDIT);
         inline_editor_cmenu.addMenuItem(Commands.EDIT_SELECT_ALL);
@@ -294,24 +286,10 @@ define(function (require, exports, module) {
                     inlineWidget = EditorManager.getFocusedInlineWidget();
 
                 if (editor) {
-                    // If there's just an insertion point select the word token at the cursor pos so
-                    // it's more clear what the context menu applies to.
-                    if (!editor.hasSelection()) {
-                        editor.selectWordAt(editor.getCursorPos());
-
-                        // Prevent menu from overlapping text by moving it down a little
-                        // Temporarily backout this change for now to help mitigate issue #1111,
-                        // which only happens if mouse is not over context menu. Better fix
-                        // requires change to bootstrap, which is too risky for now.
-                        //e.pageY += 6;
-                    }
-
                     // Inline text editors have a different context menu (safe to assume it's not some other
                     // type of inline widget since we already know an Editor has focus)
                     if (inlineWidget) {
                         inline_editor_cmenu.open(e);
-                    } else {
-                        editor_cmenu.open(e);
                     }
                 }
             });

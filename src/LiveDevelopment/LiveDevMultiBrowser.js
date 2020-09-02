@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 Adobe Systems Incorporated. All rights reserved.
+ * Copyright (c) 2012 - present Adobe Systems Incorporated. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,9 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  *
  */
-
-/*jslint vars: true, plusplus: true, devel: true, nomen: true, indent: 4, forin: true, maxerr: 50, regexp: true */
-/*global define, $ */
 
 /**
  * LiveDevelopment allows Brackets to launch a browser with a "live preview" that's
@@ -82,6 +79,7 @@ define(function (require, exports, module) {
         MainViewManager      = require("view/MainViewManager"),
         PreferencesDialogs   = require("preferences/PreferencesDialogs"),
         ProjectManager       = require("project/ProjectManager"),
+        PreferencesManager   = require("preferences/PreferencesManager"),
         Strings              = require("strings"),
         _                    = require("thirdparty/lodash"),
         LiveDevelopmentUtils = require("LiveDevelopment/LiveDevelopmentUtils"),
@@ -299,7 +297,8 @@ define(function (require, exports, module) {
      */
     function _styleSheetAdded(event, url, roots) {
         var path = _server && _server.urlToPath(url),
-            alreadyAdded = !!_relatedDocuments[url];
+            alreadyAdded = !!_relatedDocuments[url],
+            docPromise;
 
         // path may be null if loading an external stylesheet.
         // Also, the stylesheet may already exist and be reported as added twice
@@ -309,12 +308,26 @@ define(function (require, exports, module) {
             return;
         }
 
-        var docPromise = DocumentManager.getDocumentForPath(path);
+        try {
+            // Don't blow-up if the file is missing (deleted) but we still think we have it.
+            docPromise = DocumentManager.getDocumentForPath(path);
+        } catch(e) {
+            console.log("[Bramble] No stylesheet found for path, skipping: " + path);
+            return;
+        }
 
         docPromise.done(function (doc) {
             if ((_classForDocument(doc) === LiveCSSDocument) &&
                     (!_liveDocument || (doc !== _liveDocument.doc))) {
-                var liveDoc = _createLiveDocument(doc, null, roots);
+
+                // XXXBramble: Avoid recreating the live doc if we already have it.
+                var liveDoc = _server.get(path);
+                if(liveDoc) {
+                    return;
+                }
+
+                // We don't, so create it and add to the server.
+                liveDoc = _createLiveDocument(doc, doc._masterEditor, roots);
                 if (liveDoc) {
                     _server.add(liveDoc);
                     _relatedDocuments[doc.url] = liveDoc;
@@ -440,6 +453,21 @@ define(function (require, exports, module) {
         return result.promise();
     }
 
+    function _removeProtocolListeners(protocol) {
+        if(!protocol._listeners) {
+            return;
+        }
+
+        protocol
+            .off("ConnectionConnect.livedev", protocol._listeners["ConnectionConnect.livedev"])
+            .off("ConnectionClose.livedev",   protocol._listeners["ConnectionClose.livedev"])
+            .off("DocumentRelated.livedev",   protocol._listeners["DocumentRelated.livedev"])
+            .off("StylesheetAdded.livedev",   protocol._listeners["StylesheetAdded.livedev"])
+            .off("StylesheetRemoved.livedev", protocol._listeners["StylesheetRemoved.livedev"]);
+
+        protocol._listeners = null;
+    }
+
     /**
      * @private
      * Close the connection and the associated window
@@ -450,7 +478,9 @@ define(function (require, exports, module) {
         if (exports.status !== STATUS_INACTIVE) {
             // Close live documents
             _closeDocuments();
+
             // Close all active connections
+            _removeProtocolListeners(_protocol);
             _protocol.closeAllConnections();
 
             if (_server) {
@@ -551,9 +581,13 @@ define(function (require, exports, module) {
                     _protocol.navigate(_server.pathToUrl(navigatePath));
                 }
 
-                _protocol
+                // XXXBramble: cache listeners so we can remove on close() and not leak
+                if(_protocol._listeners) {
+                    _removeProtocolListeners(_protocol);
+                }
+                _protocol._listeners = {
                     // TODO: timeout if we don't get a connection within a certain time
-                    .on("ConnectionConnect.livedev", function (event, msg) {
+                    "ConnectionConnect.livedev": function(event, msg) {
                         // check for the first connection
                         if (_protocol.getConnectionIds().length === 1) {
                             // check the page that connection comes from matches the current live document session
@@ -561,35 +595,46 @@ define(function (require, exports, module) {
                                 _setStatus(STATUS_ACTIVE);
                             }
                         }
-                    })
-                    .on("ConnectionClose.livedev", function (event, msg) {
+                    },
+
+                    "ConnectionClose.livedev": function (event, msg) {
                         // close session when the last connection was closed
                         if (_protocol.getConnectionIds().length === 0) {
                             setTimeout(function () {
-                                if (_protocol.getConnectionIds().length === 0) {
-                                    if (exports.status <= STATUS_ACTIVE) {
-                                        _close(false, "detached_target_closed");
-                                    }
+                                if (_protocol.getConnectionIds().length === 0 &&
+                                        exports.status <= STATUS_ACTIVE) {
+                                    _close(false, "detached_target_closed");
                                 }
                             }, 5000);
                         }
-                    })
+                    },
+
                     // extract stylesheets and create related LiveCSSDocument instances
-                    .on("DocumentRelated.livedev", function (event, msg) {
+                    "DocumentRelated.livedev": function (event, msg) {
                         var relatedDocs = msg.related;
                         var docs = Object.keys(relatedDocs.stylesheets);
                         docs.forEach(function (url) {
                             _styleSheetAdded(null, url, relatedDocs.stylesheets[url]);
                         });
-                    })
+                    },
+
                     // create new LiveCSSDocument if a new stylesheet is added
-                    .on("StylesheetAdded.livedev", function (event, msg) {
+                    "StylesheetAdded.livedev": function (event, msg) {
                         _styleSheetAdded(null, msg.href, msg.roots);
-                    })
+                    },
+
                     // remove LiveCSSDocument instance when stylesheet is removed
-                    .on("StylesheetRemoved.livedev", function (event, msg) {
+                    "StylesheetRemoved.livedev": function (event, msg) {
                         _handleRelatedDocumentDeleted(msg.href);
-                    });
+                    }
+                };
+
+                _protocol
+                    .on("ConnectionConnect.livedev", _protocol._listeners["ConnectionConnect.livedev"])
+                    .on("ConnectionClose.livedev",   _protocol._listeners["ConnectionClose.livedev"])
+                    .on("DocumentRelated.livedev",   _protocol._listeners["DocumentRelated.livedev"])
+                    .on("StylesheetAdded.livedev",   _protocol._listeners["StylesheetAdded.livedev"])
+                    .on("StylesheetRemoved.livedev", _protocol._listeners["StylesheetRemoved.livedev"]);
             } else {
                 console.error("LiveDevelopment._open(): No server active");
             }
@@ -917,6 +962,9 @@ define(function (require, exports, module) {
     }
 
     EventDispatcher.makeEventDispatcher(exports);
+
+    // XXXBramble: we need livePreviewAutoReload preference available to both core and extension
+    PreferencesManager.definePreference("livePreviewAutoReload", "boolean", true);
 
     // For unit testing
     exports._server                   = _server;

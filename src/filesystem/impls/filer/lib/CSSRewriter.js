@@ -5,7 +5,7 @@ define(function (require, exports, module) {
 
     var Content = require("filesystem/impls/filer/lib/content");
     var Path = require("filesystem/impls/filer/FilerUtils").Path;
-    var BlobUtils = require("filesystem/impls/filer/BlobUtils");
+    var UrlCache = require("filesystem/impls/filer/UrlCache");
     var decodePath = require("filesystem/impls/filer/FilerUtils").decodePath;
 
     /**
@@ -39,7 +39,7 @@ define(function (require, exports, module) {
 
                 var filename = input.splice(0,1)[0];
                 var decodedPath = Path.resolve(dir, decodePath(filename));
-                var cachedUrl = BlobUtils.getUrl(decodedPath);
+                var cachedUrl = UrlCache.getUrl(decodedPath);
                 if(cachedUrl === decodedPath) {
                     // If there's an error with one of the linked files, warn and skip it.
                     console.log("[CSSRewriter warning] failed on `" + filename + "`", "not found");
@@ -89,10 +89,17 @@ define(function (require, exports, module) {
     };
 
     function rewrite(path, css, callback) {
-        var rewriter = new CSSRewriter(path, css);
-        setTimeout(function() {
-            rewriter.urls(callback);
-        }, 0);
+        // We don't always need to rewrite, so return early if it's not needed.
+        if(!UrlCache.getShouldRewriteUrls()) {
+            setTimeout(function() {
+                callback(null, css);
+            }, 0);
+        } else {
+            setTimeout(function() {
+                var rewriter = new CSSRewriter(path, css);
+                rewriter.urls(callback);
+            }, 0);
+        }
     }
 
     exports.rewrite = rewrite;
