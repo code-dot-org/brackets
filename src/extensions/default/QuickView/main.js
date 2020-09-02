@@ -1,31 +1,32 @@
 /*
- * Copyright (c) 2013 - present Adobe Systems Incorporated. All rights reserved.
- *
+ * Copyright (c) 2013 Adobe Systems Incorporated. All rights reserved.
+ *  
  * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
+ * copy of this software and associated documentation files (the "Software"), 
+ * to deal in the Software without restriction, including without limitation 
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+ * and/or sell copies of the Software, and to permit persons to whom the 
  * Software is furnished to do so, subject to the following conditions:
- *
+ *  
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- *
+ *  
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
  * DEALINGS IN THE SOFTWARE.
- *
+ * 
  */
 
-/*jslint regexp: true */
+/*jslint vars: true, plusplus: true, devel: true, nomen: true,  regexp: true, indent: 4, maxerr: 50 */
+/*global define, brackets, $, window, PathUtils */
 
 define(function (require, exports, module) {
     "use strict";
-
+    
     // Brackets modules
     var ColorUtils          = brackets.getModule("utils/ColorUtils"),
         CommandManager      = brackets.getModule("command/CommandManager"),
@@ -40,15 +41,11 @@ define(function (require, exports, module) {
         Strings             = brackets.getModule("strings"),
         ViewUtils           = brackets.getModule("utils/ViewUtils"),
         TokenUtils          = brackets.getModule("utils/TokenUtils"),
-        PathUtils           = brackets.getModule("thirdparty/path-utils/path-utils"),
         Path                = brackets.getModule("filesystem/impls/filer/BracketsFiler").Path,
-        UrlCache           = brackets.getModule("filesystem/impls/filer/UrlCache");
-
-    // XXXBramble: we also show a similar indicator, and need to not have them fight for space
-    var InlineProviderIndicator = brackets.getModule("editor/InlineProviderIndicator");
-
+        BlobUtils           = brackets.getModule("filesystem/impls/filer/BlobUtils");
+   
     var previewContainerHTML       = require("text!QuickViewTemplate.html");
-
+    
     var enabled,                             // Only show preview if true
         prefs                      = null,   // Preferences
         $previewContainer,                   // Preview container
@@ -56,28 +53,20 @@ define(function (require, exports, module) {
         lastMousePos,                        // Last mouse position
         animationRequest,                    // Request for animation frame
         extensionlessImagePreview;           // Whether to try and preview extensionless URLs
-
+    
     // Constants
     var CMD_ENABLE_QUICK_VIEW       = "view.enableQuickView",
         HOVER_DELAY                 = 350,  // Time (ms) mouse must remain over a provider's matched text before popover appears
         POINTER_HEIGHT              = 15,   // Pointer height, used to shift popover above pointer (plus a little bit of space)
         POPOVER_HORZ_MARGIN         =  5;   // Horizontal margin
-
-    var styleLanguages = ["css", "text/x-less", "sass", "text/x-scss", "stylus"];
-
-    // List of protocols which we will support for image preview urls
-    var validProtocols = ["data:", "http:", "https:", "ftp:", "file:"];
+    
+    var styleLanguages = ["css", "text/x-less", "sass", "text/x-scss"];
 
     prefs = PreferencesManager.getExtensionPrefs("quickview");
-    prefs.definePreference("enabled", "boolean", true, {
-        description: Strings.DESCRIPTION_QUICK_VIEW_ENABLED
-    });
-
+    prefs.definePreference("enabled", "boolean", true);
     // Whether or not to try and show image previews for URLs missing extensions
     // (e.g., https://avatars2.githubusercontent.com/u/476009?v=3&s=200)
-    prefs.definePreference("extensionlessImagePreview", "boolean", true, {
-        description: Strings.DESCRIPTION_EXTENSION_LESS_IMAGE_PREVIEW
-    });
+    prefs.definePreference("extensionlessImagePreview", "boolean", true);
 
     /**
      * There are three states for this var:
@@ -86,7 +75,7 @@ define(function (require, exports, module) {
      * 3. If non-null, but visible==false, we're waiting for HOVER_DELAY, which
      *    is tracked by hoverTimer. The state changes to visible==true as soon as
      *    there is a provider. If the mouse moves before then, timer is restarted.
-     *
+     * 
      * @type {{
      *      visible: boolean,
      *      editor: !Editor,
@@ -94,7 +83,7 @@ define(function (require, exports, module) {
      *      start: !{line, ch},             - start of matched text range
      *      end: !{line, ch},               - end of matched text range
      *      content: !string,               - HTML content to display in popover
-     *      onShow: ?function():void,       - called once popover content added to the DOM (may never be called)
+     *      onShow: ?function():void,       - called once popover content added to the DOM (may never be called) 
      *        - if specified, must call positionPreview()
      *      xpos: number,                   - x of center of popover
      *      ytop: number,                   - y of top of matched text (when popover placed above text, normally)
@@ -103,11 +92,9 @@ define(function (require, exports, module) {
      * }}
      */
     var popoverState = null;
-
-
-
+    
     // Popover widget management ----------------------------------------------
-
+    
     /**
      * Cancels whatever popoverState was currently pending and sets it back to null. If the popover was visible,
      * hides it; if the popover was invisible and still pending, cancels hoverTimer so it will never be shown.
@@ -116,10 +103,10 @@ define(function (require, exports, module) {
         if (!popoverState) {
             return;
         }
-
+        
         if (popoverState.visible) {
             popoverState.marker.clear();
-
+            
             $previewContent.empty();
             $previewContainer.hide();
             $previewContainer.removeClass("active");
@@ -128,7 +115,7 @@ define(function (require, exports, module) {
         }
         popoverState = null;
     }
-
+    
     function positionPreview(editor, xpos, ypos, ybot) {
         var previewWidth  = $previewContainer.outerWidth(),
             top           = ypos - $previewContainer.outerHeight() - POINTER_HEIGHT,
@@ -140,9 +127,6 @@ define(function (require, exports, module) {
                 width:  previewWidth + 2 * POPOVER_HORZ_MARGIN
             },
             clip = ViewUtils.getElementClipSize($(editor.getRootElement()), elementRect);
-
-        // XXXBramble: hide the inline provider indicator if present so they don't fight.
-        InlineProviderIndicator.hide();
 
         // Prevent horizontal clipping
         if (clip.left > 0) {
@@ -162,7 +146,7 @@ define(function (require, exports, module) {
                 .removeClass("preview-bubble-below")
                 .addClass("preview-bubble-above");
         }
-
+        
         $previewContainer
             .css({
                 left: left,
@@ -170,17 +154,17 @@ define(function (require, exports, module) {
             })
             .addClass("active");
     }
-
+    
     function divContainsMouse($div, mousePos) {
         var offset = $div.offset();
-
+        
         return (mousePos.clientX >= offset.left &&
                 mousePos.clientX <= offset.left + $div.width() &&
                 mousePos.clientY >= offset.top &&
                 mousePos.clientY <= offset.top + $div.height());
     }
-
-
+    
+    
     // Color & gradient preview provider --------------------------------------
 
     function colorAndGradientPreviewProvider(editor, pos, token, line) {
@@ -202,7 +186,7 @@ define(function (require, exports, module) {
                 str = CSSUtils.reduceStyleSheetForRegExParsing(str);
             }
             len = str.length;
-
+            
             for (i = 0; i < len; i++) {
                 switch (str[i]) {
                 case "(":
@@ -220,26 +204,26 @@ define(function (require, exports, module) {
             // if parens are balanced, nest level will be 0
             return (nestLevel === 0);
         }
-
+        
         function execGradientMatch(line, parensBalanced) {
             // Unbalanced parens cause infinite loop (see issue #4650)
             var gradientMatch = (parensBalanced ? gradientRegEx.exec(line) : null),
                 prefix = "",
                 colorValue;
-
+            
             if (gradientMatch) {
                 if (gradientMatch[0].indexOf("@") !== -1) {
                     // If the gradient match has "@" in it, it is most likely a less or
                     // sass variable. Ignore it since it won't be displayed correctly.
                     gradientMatch = null;
-
+    
                 } else {
-                    // If it was a linear-gradient or radial-gradient variant with a vendor prefix
+                    // If it was a linear-gradient or radial-gradient variant with a vendor prefix 
                     // add "-webkit-" so it shows up correctly in Brackets.
                     if (gradientMatch[0].match(/-o-|-moz-|-ms-|-webkit-/i)) {
                         prefix = "-webkit-";
                     }
-
+                    
                     // For prefixed gradients, use the non-prefixed value as the color value.
                     // "-webkit-" will be added before this value later
                     if (gradientMatch[1]) {
@@ -277,7 +261,7 @@ define(function (require, exports, module) {
                         }
                     }
                 }
-
+                
                 return false;
             }
             function isNamedColor(match) {
@@ -301,7 +285,7 @@ define(function (require, exports, module) {
 
             return colorMatch;
         }
-
+        
         // simple css property splitter (used to find color stop arguments in gradients)
         function splitStyleProperty(property) {
             var token = /((?:[^"']|".*?"|'.*?')*?)([(,)]|$)/g;
@@ -324,17 +308,17 @@ define(function (require, exports, module) {
             };
             return (recurse());
         }
-
+        
         // color stop helpers
         function isGradientColorStop(args) {
             return (args.length > 0 && args[0].match(colorRegEx) !== null);
         }
-
+        
         function hasLengthInPixels(args) {
             return (args.length > 1 && args[1].indexOf("px") > 0);
         }
-
-        // Normalizes px color stops to %
+        
+        // Normalizes px color stops to % 
         function normalizeGradientExpressionForQuickview(expression) {
             if (expression.indexOf("px") > 0) {
                 var paramStart = expression.indexOf("(") + 1,
@@ -347,30 +331,30 @@ define(function (require, exports, module) {
                     thisSize,
                     i;
 
-                // find lower bound
+                // find lower bound                
                 for (i = 0; i < params.length; i++) {
                     args = params[i].split(" ");
-
+                    
                     if (hasLengthInPixels(args)) {
                         thisSize = parseFloat(args[1]);
 
                         upperBound = Math.max(upperBound, thisSize);
                         // we really only care about converting negative
-                        //  pixel values -- so take the smallest negative pixel
+                        //  pixel values -- so take the smallest negative pixel 
                         //  value and use that as baseline for display purposes
                         if (thisSize < 0) {
                             lowerBound = Math.min(lowerBound, thisSize);
                         }
                     }
                 }
-
+                
                 // convert negative lower bound to positive and adjust all pixel values
-                //  so that -20px is now 0px and 100px is now 120px
+                //  so that -20px is now 0px and 100px is now 120px 
                 lowerBound = Math.abs(lowerBound);
-
+                
                 // Offset the upperbound by the lowerBound to give us a corrected context
                 upperBound += lowerBound;
-
+                
                 // convert to %
                 for (i = 0; i < params.length; i++) {
                     args = params[i].split(" ");
@@ -385,7 +369,7 @@ define(function (require, exports, module) {
                     params[i] = args.join(" ");
                 }
 
-                // put it back together.
+                // put it back together.                
                 expression = expression.substring(0, paramStart) + params.join(", ") + expression.substring(paramEnd);
             }
             return expression;
@@ -409,21 +393,21 @@ define(function (require, exports, module) {
             } else if (pos.ch <= match.index + match[0].length) {
                 // build the css for previewing the gradient from the regex result
                 var previewCSS = gradientMatch.prefix + (gradientMatch.colorValue || match[0]);
-
+                
                 // normalize the arguments to something that we can display to the user
-                // NOTE: we need both the div and the popover's _previewCSS member
+                // NOTE: we need both the div and the popover's _previewCSS member 
                 //          (used by unit tests) to match so normalize the css for both
                 previewCSS = normalizeGradientExpressionForQuickview(previewCSS);
-
+                    
                 var preview = "<div class='color-swatch' style='background:" + previewCSS + "'>" +
                               "</div>";
                 var startPos = {line: pos.line, ch: match.index},
                     endPos = {line: pos.line, ch: match.index + match[0].length},
                     startCoords = cm.charCoords(startPos),
                     xPos;
-
+                
                 xPos = (cm.charCoords(endPos).left - startCoords.left) / 2 + startCoords.left;
-
+                
                 return {
                     start: startPos,
                     end: endPos,
@@ -441,16 +425,16 @@ define(function (require, exports, module) {
             }
             match = gradientMatch.match || execColorMatch(editor, line, pos);
         }
-
+        
         return null;
     }
-
-
+    
+    
     // Image preview provider -------------------------------------------------
-
+    
     function imagePreviewProvider(editor, pos, token, line) {
         var cm = editor._codeMirror;
-
+        
         // Check for image name
         var urlRegEx = /url\(([^\)]*)\)/gi,
             tokenString,
@@ -471,7 +455,7 @@ define(function (require, exports, module) {
                 urlMatch = urlRegEx.exec(line);
             }
         }
-
+        
         if (!tokenString) {
             return null;
         }
@@ -485,8 +469,7 @@ define(function (require, exports, module) {
 
         // Determine whether or not this URL/path is likely to be an image.
         var parsed = PathUtils.parseUrl(tokenString);
-        // If the URL has a protocol, check if it's one of the supported protocols
-        var hasProtocol = parsed.protocol !== "" && validProtocols.indexOf(parsed.protocol.trim().toLowerCase()) !== -1;
+        var hasProtocol = parsed.protocol !== "";
         var ext = parsed.filenameExtension.replace(/^\./, '');
         var language = LanguageManager.getLanguageForExtension(ext);
         var id = language && language.getId();
@@ -500,9 +483,9 @@ define(function (require, exports, module) {
             imgPath = tokenString;
         }
         // Use this filename if this is a path with a known image extension.
-        // We'll already have this image file's URL cached in UrlCache.
+        // We'll already have this image file's Blob URL cached in BlobUtils.
         else if (!hasProtocol && isImage) {
-            imgPath = UrlCache.getUrl(Path.join(FileUtils.getDirectoryPath(docPath), tokenString));
+            imgPath = BlobUtils.getUrl(Path.join(FileUtils.getDirectoryPath(docPath), tokenString));
         }
 
         if (!imgPath) {
@@ -551,10 +534,10 @@ define(function (require, exports, module) {
             _imgPath: imgPath
         };
     }
-
+    
 
     // Preview hide/show logic ------------------------------------------------
-
+    
     /**
      * Returns a 'ready for use' popover state object:
      * { visible: false, editor, start, end, content, ?onShow, xpos, ytop, ybot }
@@ -562,11 +545,11 @@ define(function (require, exports, module) {
      */
     function queryPreviewProviders(editor, pos, token) {
         var line = editor.document.getLine(pos.line);
-
+        
         // FUTURE: Support plugin providers. For now we just hard-code...
-        // XXXBramble: we opt to not show the color preview, since we show an editor indicator instead.
-        var popover = imagePreviewProvider(editor, pos, token, line);
-
+        var popover = colorAndGradientPreviewProvider(editor, pos, token, line) ||
+                      imagePreviewProvider(editor, pos, token, line);
+        
         if (popover) {
             // Providers return just { start, end, content, ?onShow, xpos, ytop, ybot }
             popover.visible = false;
@@ -576,24 +559,24 @@ define(function (require, exports, module) {
 
         return null;
     }
-
+    
     function getHoveredEditor(mousePos) {
         // Figure out which editor we are over
         var fullEditor = EditorManager.getCurrentFullEditor();
-
+        
         if (!fullEditor || !mousePos) {
             return;
         }
-
+        
         // Check for inline Editor instances first
         var inlines = fullEditor.getInlineWidgets(),
             i,
             editor;
-
+        
         for (i = 0; i < inlines.length; i++) {
             var $inlineEditorRoot = inlines[i].editor && $(inlines[i].editor.getRootElement()), // see MultiRangeInlineEditor
                 $otherDiv = inlines[i].$htmlContent;
-
+            
             if ($inlineEditorRoot && divContainsMouse($inlineEditorRoot, mousePos)) {
                 editor = inlines[i].editor;
                 break;
@@ -602,17 +585,17 @@ define(function (require, exports, module) {
                 return;
             }
         }
-
+        
         // Check main editor
         if (!editor) {
             if (divContainsMouse($(fullEditor.getRootElement()), mousePos)) {
                 editor = fullEditor;
             }
         }
-
+        
         return editor;
     }
-
+    
     /**
      * Changes the current hidden popoverState to visible, showing it in the UI and highlighting
      * its matching text in the editor.
@@ -647,19 +630,19 @@ define(function (require, exports, module) {
             token = TokenUtils.getTokenAt(cm, pos);
             popoverState = $.extend({}, popoverState, queryPreviewProviders(editor, pos, token));
         }
-
+        
         if (popoverState && popoverState.start && popoverState.end) {
             popoverState.marker = cm.markText(
                 popoverState.start,
                 popoverState.end,
                 {className: "quick-view-highlight"}
             );
-
+            
             $previewContent.append(popoverState.content);
             $previewContainer.show();
-
+            
             popoverState.visible = true;
-
+            
             if (popoverState.onShow) {
                 popoverState.onShow();
             } else {
@@ -670,7 +653,7 @@ define(function (require, exports, module) {
 
     function processMouseMove() {
         animationRequest = null;
-
+        
         if (!lastMousePos) {
             return;         // should never get here, but safety first!
         }
@@ -713,7 +696,7 @@ define(function (require, exports, module) {
             showPreview(editor);
         }, showImmediately ? 0 : HOVER_DELAY);
     }
-
+    
     function handleMouseMove(event) {
         lastMousePos = null;
 
@@ -758,7 +741,7 @@ define(function (require, exports, module) {
     }
 
     function setExtensionlessImagePreview(_extensionlessImagePreview, doNotSave) {
-        if (extensionlessImagePreview !== _extensionlessImagePreview) {
+        if(extensionlessImagePreview !== _extensionlessImagePreview) {
             extensionlessImagePreview = _extensionlessImagePreview;
             if (!doNotSave) {
                 prefs.set("extensionlessImagePreview", enabled);
@@ -801,11 +784,11 @@ define(function (require, exports, module) {
         // Always update the checkmark, even if the enabled flag hasn't changed.
         updateMenuItemCheckmark();
     }
-
+    
     function toggleEnableQuickView() {
         setEnabled(!enabled);
     }
-
+    
     function _forceShow(popover) {
         hidePreview();
         lastMousePos = {
@@ -814,23 +797,29 @@ define(function (require, exports, module) {
         };
         showPreview(popover.editor, popover);
     }
-
+    
     // Create the preview container
     $previewContainer = $(previewContainerHTML).appendTo($("body"));
     $previewContent = $previewContainer.find(".preview-content");
-
+    
     // Load our stylesheet
-    ExtensionUtils.loadStyleSheet(module, "QuickView.less");
-
+    // XXXBramble: use CSS vs. LESS
+    ExtensionUtils.loadStyleSheet(module, "QuickView.css");
+    
     // Register command
     // Insert menu at specific pos since this may load before OR after code folding extension
     CommandManager.register(Strings.CMD_ENABLE_QUICK_VIEW, CMD_ENABLE_QUICK_VIEW, toggleEnableQuickView);
     Menus.getMenu(Menus.AppMenuBar.VIEW_MENU).addMenuItem(CMD_ENABLE_QUICK_VIEW, null, Menus.AFTER, Commands.VIEW_TOGGLE_INSPECTION);
+    
+    // Convert old preferences
+    PreferencesManager.convertPreferences(module, {
+        "enabled": "user quickview.enabled"
+    });
 
     // Setup initial UI state
     setEnabled(prefs.get("enabled"), true);
     setExtensionlessImagePreview(prefs.get("extensionlessImagePreview"), true);
-
+    
     prefs.on("change", "enabled", function () {
         setEnabled(prefs.get("enabled"), true);
     });
@@ -838,7 +827,7 @@ define(function (require, exports, module) {
     prefs.on("change", "extensionlessImagePreview", function () {
         setExtensionlessImagePreview(prefs.get("extensionlessImagePreview"));
     });
-
+    
     // For unit testing
     exports._queryPreviewProviders  = queryPreviewProviders;
     exports._forceShow              = _forceShow;

@@ -104,7 +104,6 @@
   }
 
   function clearMenus() {
-    $(".toggle-open").removeClass("toggle-open");
     $(toggle).each(function () {
       getParent($(this)).removeClass('open')
     })
@@ -157,11 +156,7 @@
    * =================================== */
 
   $(document)
-    .on('click.dropdown.data-api', function(e){
-        if(!e.target.classList.contains("menuToggle")) {
-            clearMenus();
-        }
-    })
+    .on('click.dropdown.data-api', clearMenus)
     .on('click.dropdown.data-api', '.dropdown form', function (e) { e.stopPropagation() })
     .on('click.dropdown-menu', function (e) { e.stopPropagation() })
     .on('click.dropdown.data-api'  , toggle, Dropdown.prototype.toggle)

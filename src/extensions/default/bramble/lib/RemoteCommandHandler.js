@@ -7,25 +7,20 @@ define(function (require, exports, module) {
     var CommandManager     = brackets.getModule("command/CommandManager");
     var EditorManager      = brackets.getModule("editor/EditorManager");
     var Commands           = brackets.getModule("command/Commands");
-    var FileSystem         = brackets.getModule("filesystem/FileSystem");
     var HTMLRewriter       = brackets.getModule("filesystem/impls/filer/lib/HTMLRewriter");
     var SidebarView        = brackets.getModule("project/SidebarView");
     var StatusBar          = brackets.getModule("widgets/StatusBar");
     var WorkspaceManager   = brackets.getModule("view/WorkspaceManager");
     var BrambleEvents      = brackets.getModule("bramble/BrambleEvents");
-    var StartupState       = brackets.getModule("bramble/StartupState");
     var PreferencesManager = brackets.getModule("preferences/PreferencesManager");
     var _                  = brackets.getModule("thirdparty/lodash");
     var ArchiveUtils       = brackets.getModule("filesystem/impls/filer/ArchiveUtils");
-    var Sizes              = brackets.getModule("filesystem/impls/filer/lib/Sizes");
 
-    var SVGUtils = require("lib/SVGUtils");
     var MouseManager = require("lib/MouseManager");
     var PostMessageTransport = require("lib/PostMessageTransport");
     var Tutorial = require("lib/Tutorial");
     var Theme = require("lib/Theme");
     var UI = require("lib/UI");
-    var IframeBrowser = require("lib/iframe-browser");
 
     function _remoteCallbackFn(callback) {
         return function() {
@@ -42,11 +37,6 @@ define(function (require, exports, module) {
         function executeCommand() {
             args.unshift(Commands[command]);
             CommandManager.execute.apply(null, args).always(callback);
-        }
-
-        // Fix outdated calls for new folder command (used to be FILE_FOLDER)
-        if(command === "FILE_FOLDER") {
-            command = "FILE_NEW_FOLDER";
         }
 
         // Some commands require focus in the editor
@@ -94,43 +84,22 @@ define(function (require, exports, module) {
             UI.disableFullscreenPreview();
             break;
         case "BRAMBLE_ENABLE_AUTO_UPDATE":
-            PreferencesManager.set("autoUpdate", true);
             PostMessageTransport.setAutoUpdate(true);
             break;
         case "BRAMBLE_DISABLE_AUTO_UPDATE":
-            PreferencesManager.set("autoUpdate", false);
             PostMessageTransport.setAutoUpdate(false);
             break;
         case "BRAMBLE_ENABLE_SCRIPTS":
-            PreferencesManager.set("allowJavaScript", true);
+            HTMLRewriter.enableScripts();
             PostMessageTransport.reload();
             break;
         case "BRAMBLE_DISABLE_SCRIPTS":
-            PreferencesManager.set("allowJavaScript", false);
+            HTMLRewriter.disableScripts();
             PostMessageTransport.reload();
-            break;
-        case "BRAMBLE_ENABLE_WHITESPACE":
-            PreferencesManager.getExtensionPrefs("denniskehrig.ShowWhitespace").set("enabled", true);
-            break;
-        case "BRAMBLE_DISABLE_WHITESPACE":
-            PreferencesManager.getExtensionPrefs("denniskehrig.ShowWhitespace").set("enabled", false);
             break;
         case "BRAMBLE_ENABLE_INSPECTOR":
             MouseManager.enableInspector();
             break;
-        case "BRAMBLE_ENABLE_AUTOCOMPLETE":
-            PreferencesManager.set("codehint.TagHints", true);
-            PreferencesManager.set("codehint.AttrHints", true);
-            PreferencesManager.set("codehint.JSHints", true);
-            PreferencesManager.set("codehint.CssPropHints", true);
-            break;
-        case "BRAMBLE_DISABLE_AUTOCOMPLETE":
-            PreferencesManager.set("codehint.TagHints", false);
-            PreferencesManager.set("codehint.AttrHints", false);
-            PreferencesManager.set("codehint.JSHints", false);
-            PreferencesManager.set("codehint.CssPropHints", false);
-            break;
-
         case "BRAMBLE_DISABLE_INSPECTOR":
             // Disable the inspector, and clear any marks in the preview/editor
             MouseManager.disableInspector(true);
@@ -147,12 +116,6 @@ define(function (require, exports, module) {
         case "BRAMBLE_HIDE_SIDEBAR":
             SidebarView.hide();
             break;
-        case "BRAMBLE_SHOW_PREVIEW":
-            IframeBrowser.show();
-            break;
-        case "BRAMBLE_HIDE_PREVIEW":
-            IframeBrowser.hide();
-            break;
         case "BRAMBLE_HIDE_STATUSBAR":
             StatusBar.disable();
             break;
@@ -165,17 +128,6 @@ define(function (require, exports, module) {
         case "BRAMBLE_DISABLE_WORD_WRAP":
             PreferencesManager.set("wordWrap", false);
             break;
-        case "BRAMBLE_CONFIGURE_AUTO_CLOSE_TAGS":
-            PreferencesManager.set("closeTags", args[0]);
-            break;
-        case "BRAMBLE_OPEN_SVG_AS_XML":
-            skipCallback = true;
-            SVGUtils.showXML(callback);
-            break;
-        case "BRAMBLE_OPEN_SVG_AS_IMAGE":
-            skipCallback = true;
-            SVGUtils.showImage(callback);
-            break;
         case "BRAMBLE_SHOW_TUTORIAL":
             Tutorial.setOverride(true);
             break;
@@ -187,48 +139,18 @@ define(function (require, exports, module) {
             skipCallback = true;
             CommandManager.execute("bramble.showUploadFiles").always(callback);
             break;
-        case "BRAMBLE_FILE_REFRESH":
-            skipCallback = true;
-            CommandManager
-                .execute("bramble.fileRefresh")
-                .always(callback);
-            break;
         case "BRAMBLE_ADD_NEW_FILE":
             skipCallback = true;
-            // Make sure we have enough room to add new files.
-            if(Sizes.getEnforceLimits()) {
-                CommandManager
-                    .execute("bramble.projectSizeError")
-                    .always(callback);
-            } else {
-                CommandManager
-                    .execute("bramble.addFile", args[0])
-                    .always(callback);
-            }
+            CommandManager.execute("bramble.addFile", args[0]).always(callback);
             break;
         case "BRAMBLE_EXPORT":
             skipCallback = true;
-            ArchiveUtils.archive(StartupState.project("root"), callback);
+            ArchiveUtils.archive(callback);
             break;
         case "RESIZE":
             // The host window was resized, update all panes
             WorkspaceManager.recomputeLayout(true);
             BrambleEvents.triggerUpdateLayoutEnd();
-            break;
-        case "BRAMBLE_ADD_CODE_SNIPPET":
-            skipCallback = true;
-            CommandManager.execute("bramble.addCodeSnippet", args[0]).always(callback);
-            break;
-        case "BRAMBLE_ENABLE_PROJECT_CAPACITY_LIMITS":
-            skipCallback = true;
-            Sizes.setEnforceLimits(true);
-            CommandManager.execute("bramble.projectSizeError").always(callback);
-            break;
-        case "BRAMBLE_DISABLE_PROJECT_CAPACITY_LIMITS":
-            Sizes.setEnforceLimits(false);
-            break;
-        case "BRAMBLE_PROJECT_SIZE_CHANGE":
-            UI.setProjectSizeInfo(args[0]);
             break;
         default:
             console.log('[Bramble] unknown command:', command);
@@ -246,7 +168,7 @@ define(function (require, exports, module) {
         try {
             remoteRequest = JSON.parse(e.data);
         } catch(err) {
-            // Ignore any data that isn't JSON (e.g., coming from browser extension)
+            console.log('[Bramble] unable to parse remote request:', e.data);
             return;
         }
 

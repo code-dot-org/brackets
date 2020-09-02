@@ -19,17 +19,16 @@ define(function (require, exports, module) {
      */
 
     // Time in ms to wait after a dirtyFlagChange event before autosaving file
-    var SAVE_DELAY_MS = 0.15 * 1000;
+    var SAVE_DELAY_MS = 5 * 1000;
 
     // Whether or not to autosave immediately when the user switches away from
     // a dirty editor document.
     var SAVE_ON_EDITOR_CHANGE = true;
 
-    var FILE_SAVE       = brackets.getModule("command/Commands").FILE_SAVE,
+    var FILE_SAVE       = brackets.getModule("command/Commands").FILE_SAVE, 
         SaveCommand     = brackets.getModule("command/CommandManager").get(FILE_SAVE),
         DocumentManager = brackets.getModule("document/DocumentManager"),
-        EditorManager   = brackets.getModule("editor/EditorManager"),
-        BrambleEvents   = brackets.getModule("bramble/BrambleEvents");
+        EditorManager   = brackets.getModule("editor/EditorManager");
 
     // Save operations that are pending
     var pending = {};
@@ -51,11 +50,6 @@ define(function (require, exports, module) {
             doc.releaseRef();
             clearTimeout(pending[path]);
             delete pending[path];
-
-            // if statement cheks if there is no more pending saves
-            if(Object.keys(pending).length === 0) {
-                BrambleEvents.triggerProjectSaved();
-            }
         }
 
         function doSave() {
@@ -84,7 +78,6 @@ define(function (require, exports, module) {
     // When the editor's document is flagged as having changes, schedule a save
     DocumentManager.on("dirtyFlagChange", function(evt, doc) {
         if(doc.isDirty) {
-            BrambleEvents.triggerProjectDirty(doc.file.fullPath);
             scheduleSave(doc);
         }
     });

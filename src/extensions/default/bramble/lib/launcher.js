@@ -48,9 +48,8 @@ define(function (require, exports, module) {
                 console.error("[Launcher Error]", err);
                 return callback();
             }
-            browser.update(urlOrHTML, function (err) {
-                callback();
-            });
+            browser.update(urlOrHTML);
+            callback();
         });
     }
 

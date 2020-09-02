@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 - present Adobe Systems Incorporated. All rights reserved.
+ * Copyright (c) 2014 Adobe Systems Incorporated. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,6 +22,7 @@
  */
 
 /* unittests: ProjectModel */
+/*global define, brackets, $ */
 
 /**
  * Provides the data source for a project and manages the view model for the FileTreeView.
@@ -44,8 +45,7 @@ define(function (require, exports, module) {
         EVENT_SHOULD_SELECT     = "select",
         EVENT_SHOULD_FOCUS      = "focus",
         ERROR_CREATION          = "creationError",
-        ERROR_INVALID_FILENAME  = "invalidFilename",
-        ERROR_NOT_IN_PROJECT    = "notInProject";
+        ERROR_INVALID_FILENAME  = "invalidFilename";
 
     /**
      * @private
@@ -56,17 +56,7 @@ define(function (require, exports, module) {
      *    https://github.com/adobe/brackets/issues/6781
      * @type {RegExp}
      */
-    var _exclusionListRegEx = /\.pyc$|^\.git$|^\.gitmodules$|^\.svn$|^\.DS_Store$|^Icon\r|^Thumbs\.db$|^\.hg$|^CVS$|^\.hgtags$|^\.idea$|^\.c9revisions$|^\.SyncArchive$|^\.SyncID$|^\.SyncIgnore$|\~$/;
-
-    /**
-     * Glob definition of files and folders that should be excluded directly
-     * inside node domain watching with chokidar
-     */
-    var defaultIgnoreGlobs = [
-        "**/(.pyc|.git|.gitmodules|.svn|.DS_Store|Thumbs.db|.hg|CVS|.hgtags|.idea|.c9revisions|.SyncArchive|.SyncID|.SyncIgnore)",
-        "**/bower_components",
-        "**/node_modules"
-    ];
+    var _exclusionListRegEx = /\.pyc$|^\.git$|^\.gitmodules$|^\.svn$|^\.DS_Store$|^Thumbs\.db$|^\.hg$|^CVS$|^\.hgtags$|^\.idea$|^\.c9revisions$|^\.SyncArchive$|^\.SyncID$|^\.SyncIgnore$|\~$/;
 
     /**
      * @private
@@ -98,10 +88,8 @@ define(function (require, exports, module) {
         // Validate file name
         // Checks for valid Windows filenames:
         // See http://msdn.microsoft.com/en-us/library/windows/desktop/aa365247(v=vs.85).aspx
-        return !(
-            new RegExp("[" + invalidChars + "]+").test(filename) ||
-            _illegalFilenamesRegEx.test(filename)
-        );
+        return !((filename.search(new RegExp("[" + invalidChars + "]+")) !== -1) ||
+                 filename.match(_illegalFilenamesRegEx));
     }
 
     /**
@@ -109,7 +97,7 @@ define(function (require, exports, module) {
      * @see #shouldShow
      */
     function _shouldShowName(name) {
-        return !_exclusionListRegEx.test(name);
+        return !name.match(_exclusionListRegEx);
     }
 
     /**
@@ -221,7 +209,7 @@ define(function (require, exports, module) {
      *
      * The ProjectModel provides methods for accessing information about the current open project.
      * It also manages the view model to display a FileTreeView of the project.
-     *
+     * 
      * Events:
      * - EVENT_CHANGE (`change`) - Fired when there's a change that should refresh the UI
      * - EVENT_SHOULD_SELECT (`select`) - Fired when a selection has been made in the file tree and the file tree should be selected
@@ -247,7 +235,7 @@ define(function (require, exports, module) {
 
     /**
      * @type {Directory}
-     *
+     * 
      * The root Directory object for the project.
      */
     ProjectModel.prototype.projectRoot = null;
@@ -263,7 +251,7 @@ define(function (require, exports, module) {
     /**
      * @private
      * @type {string}
-     *
+     * 
      * Encoded URL
      * @see {@link ProjectModel#getBaseUrl}, {@link ProjectModel#setBaseUrl}
      */
@@ -273,7 +261,7 @@ define(function (require, exports, module) {
      * @private
      * @type {{selected: ?string, context: ?string, previousContext: ?string, rename: ?Object}}
      *
-     * Keeps track of selected files, context, previous context and files
+     * Keeps track of selected files, context, previous context and files 
      * that are being renamed or created.
      */
     ProjectModel.prototype._selections = null;
@@ -297,7 +285,7 @@ define(function (require, exports, module) {
     /**
      * @private
      * @type {?$.Promise.<Array<File>>}
-     *
+     * 
      * A promise that is resolved with an array of all project files. Used by
      * ProjectManager.getAllFiles().
      */
@@ -314,19 +302,19 @@ define(function (require, exports, module) {
             this.setSelected(null);
         }
     };
-
+    
     /**
      * Sets the width of the selection bar.
-     *
+     * 
      * @param {int} width New width
      */
     ProjectModel.prototype.setSelectionWidth = function (width) {
         this._viewModel.setSelectionWidth(width);
     };
-
+    
     /**
      * Tracks the scroller position.
-     *
+     * 
      * @param {int} scrollWidth Width of the tree container
      * @param {int} scrollTop Top of scroll position
      * @param {int} scrollLeft Left of scroll position
@@ -386,11 +374,11 @@ define(function (require, exports, module) {
         }
         return absPath;
     };
-
+    
     /**
      * Returns a valid directory within the project, either the path (or Directory object)
      * provided or the project root.
-     *
+     * 
      * @param {string|Directory} path Directory path to verify against the project
      * @return {string} A directory path within the project.
      */
@@ -404,7 +392,7 @@ define(function (require, exports, module) {
         } else {
             path = null;
         }
-
+        
         if (!path || (typeof path !== "string") || !this.isWithinProject(path)) {
             path = this.projectRoot.fullPath;
         }
@@ -421,10 +409,9 @@ define(function (require, exports, module) {
      * starting up. The cache is cleared on every filesystem change event, and
      * also on project load and unload.
      *
-     * @param {boolean} true to sort files by their paths
      * @return {$.Promise.<Array.<File>>}
      */
-    ProjectModel.prototype._getAllFilesCache = function _getAllFilesCache(sort) {
+    ProjectModel.prototype._getAllFilesCache = function _getAllFilesCache() {
         if (!this._allFilesCachePromise) {
             var deferred = new $.Deferred(),
                 allFiles = [],
@@ -439,14 +426,11 @@ define(function (require, exports, module) {
                 };
 
             this._allFilesCachePromise = deferred.promise();
-
+            
             var projectIndexTimer = PerfUtils.markStart("Creating project files cache: " +
-                                                        this.projectRoot.fullPath),
-                options = {
-                    sortList : sort
-                };
+                                                        this.projectRoot.fullPath);
 
-            this.projectRoot.visit(allFilesVisitor, options, function (err) {
+            this.projectRoot.visit(allFilesVisitor, function (err) {
                 if (err) {
                     PerfUtils.finalizeMeasurement(projectIndexTimer);
                     deferred.reject(err);
@@ -468,11 +452,10 @@ define(function (require, exports, module) {
      *          the file list (does not filter directory traversal). API matches Array.filter().
      * @param {Array.<File>=} additionalFiles Additional files to include (for example, the WorkingSet)
      *          Only adds files that are *not* under the project root or untitled documents.
-     * @param {boolean} true to sort files by their paths
      *
      * @return {$.Promise} Promise that is resolved with an Array of File objects.
      */
-    ProjectModel.prototype.getAllFiles = function getAllFiles(filter, additionalFiles, sort) {
+    ProjectModel.prototype.getAllFiles = function getAllFiles(filter, additionalFiles) {
         // The filter and includeWorkingSet params are both optional.
         // Handle the case where filter is omitted but includeWorkingSet is
         // specified.
@@ -487,7 +470,7 @@ define(function (require, exports, module) {
         // Note that with proper promises we may be able to fix this so that we're not doing this
         // anti-pattern of creating a separate deferred rather than just chaining off of the promise
         // from _getAllFilesCache
-        this._getAllFilesCache(sort).done(function (result) {
+        this._getAllFilesCache().done(function (result) {
             // Add working set entries, if requested
             if (additionalFiles) {
                 additionalFiles.forEach(function (file) {
@@ -647,7 +630,7 @@ define(function (require, exports, module) {
     ProjectModel.prototype.showInTree = function (path) {
         var d = new $.Deferred();
         path = _getPathFromFSObject(path);
-
+        
         if (!this.isWithinProject(path)) {
             return d.resolve().promise();
         }
@@ -689,7 +672,7 @@ define(function (require, exports, module) {
             path = null;
             pathInProject = null;
         }
-
+        
         this.performRename();
 
         this._viewModel.moveMarker("selected", oldProjectPath, pathInProject);
@@ -697,7 +680,7 @@ define(function (require, exports, module) {
             this._viewModel.moveMarker("context", this.makeProjectRelativeIfPossible(this._selections.context), null);
             delete this._selections.context;
         }
-
+        
         var previousSelection = this._selections.selected;
         this._selections.selected = path;
 
@@ -709,11 +692,11 @@ define(function (require, exports, module) {
                     hadFocus: this._focused
                 });
             }
-
+            
             this.trigger(EVENT_SHOULD_FOCUS);
         }
     };
-
+    
     /**
      * Gets the currently selected file or directory.
      *
@@ -770,7 +753,7 @@ define(function (require, exports, module) {
         }
 
         path = _getPathFromFSObject(path);
-
+        
         if (!_doNotRename) {
             this.performRename();
         }
@@ -811,33 +794,24 @@ define(function (require, exports, module) {
      * @return {$.Promise} resolved when the operation is complete.
      */
     ProjectModel.prototype.startRename = function (path) {
-        var d = new $.Deferred();
         path = _getPathFromFSObject(path);
         if (!path) {
             path = this._selections.context;
             if (!path) {
-                return d.resolve().promise();
+                return new $.Deferred().resolve().promise();
             }
         }
 
         if (this._selections.rename && this._selections.rename.path === path) {
             return;
         }
-
-        if (!this.isWithinProject(path)) {
-            return d.reject({
-                type: ERROR_NOT_IN_PROJECT,
-                isFolder: !_pathIsFile(path),
-                fullPath: path
-            }).promise();
-        }
-
+        
         var projectRelativePath = this.makeProjectRelativeIfPossible(path);
-
+        
         if (!this._viewModel.isFilePathVisible(projectRelativePath)) {
             this.showInTree(path);
         }
-
+        
         if (path !== this._selections.context) {
             this.setContext(path);
         } else {
@@ -846,11 +820,12 @@ define(function (require, exports, module) {
 
         this._viewModel.moveMarker("rename", null,
                                    projectRelativePath);
+        var d = new $.Deferred();
         this._selections.rename = {
             deferred: d,
             type: FILE_RENAMING,
             path: path,
-            newName: FileUtils.getBaseNameDontIgnoreTrailingSlash(path)
+            newName: FileUtils.getBaseName(path)
         };
         return d.promise();
     };
@@ -894,23 +869,22 @@ define(function (require, exports, module) {
      * Rename a file/folder. This will update the project tree data structures
      * and send notifications about the rename.
      *
-     * @param {string} oldPath Old name of the item with the path
-     * @param {string} newPath New name of the item with the path
-     * @param {string} newName New name of the item
+     * @param {string} oldName Old item name
+     * @param {string} newName New item name
      * @param {boolean} isFolder True if item is a folder; False if it is a file.
      * @return {$.Promise} A promise object that will be resolved or rejected when
      *   the rename is finished.
      */
-    function _renameItem(oldPath, newPath, newName, isFolder) {
+    function _renameItem(oldName, newName, isFolder) {
         var result = new $.Deferred();
 
-        if (oldPath === newPath) {
+        if (oldName === newName) {
             result.resolve();
-        } else if (!isValidFilename(FileUtils.getBaseNameDontIgnoreTrailingSlash(newName), _invalidChars)) {
+        } else if (!isValidFilename(FileUtils.getBaseName(newName), _invalidChars)) {
             result.reject(ERROR_INVALID_FILENAME);
         } else {
-            var entry = isFolder ? FileSystem.getDirectoryForPath(oldPath) : FileSystem.getFileForPath(oldPath);
-            entry.rename(newPath, function (err) {
+            var entry = isFolder ? FileSystem.getDirectoryForPath(oldName) : FileSystem.getFileForPath(oldName);
+            entry.rename(newName, function (err) {
                 if (err) {
                     result.reject(err);
                 } else {
@@ -928,11 +902,10 @@ define(function (require, exports, module) {
      * Renames the item at the old path to the new name provided.
      *
      * @param {string} oldPath full path to the current location of file or directory (should include trailing slash for directory)
-     * @param {string} newPath full path to the new location of the file or directory
      * @param {string} newName new name for the file or directory
      */
-    ProjectModel.prototype._renameItem = function (oldPath, newPath, newName) {
-        return _renameItem(oldPath, newPath, newName, !_pathIsFile(oldPath));
+    ProjectModel.prototype._renameItem = function (oldPath, newName) {
+        return _renameItem(oldPath, newName, !_pathIsFile(oldPath));
     };
 
     /**
@@ -962,21 +935,15 @@ define(function (require, exports, module) {
 
         if (isFolder) {
             newPath += "/";
-        } else {
-            var blockedPath = this.projectRoot.fullPath + 'index.html';
-            if (newPath.toLowerCase() === blockedPath.toLowerCase()) {
-                this.cancelRename();
-                return;
-            }
         }
-
+        
         delete this._selections.rename;
         delete this._selections.context;
-
+        
         viewModel.moveMarker("rename", oldProjectPath, null);
         viewModel.moveMarker("context", oldProjectPath, null);
         viewModel.moveMarker("creating", oldProjectPath, null);
-
+        
         function finalizeRename() {
             viewModel.renameItem(oldProjectPath, newName);
             if (self._selections.selected && self._selections.selected.indexOf(oldPath) === 0) {
@@ -993,7 +960,7 @@ define(function (require, exports, module) {
                 renameInfo.deferred.reject(error);
             });
         } else {
-            this._renameItem(oldPath, newPath, newName).then(function () {
+            this._renameItem(oldPath, newPath).then(function () {
                 finalizeRename();
                 renameInfo.deferred.resolve({
                     newPath: newPath
@@ -1081,7 +1048,7 @@ define(function (require, exports, module) {
 
     /**
      * Sets the `sortDirectoriesFirst` option for the file tree view.
-     *
+     * 
      * @param {boolean} True if directories should appear first
      */
     ProjectModel.prototype.setSortDirectoriesFirst = function (sortDirectoriesFirst) {
@@ -1129,7 +1096,7 @@ define(function (require, exports, module) {
             });
         }
     };
-
+    
     /**
      * Clears caches and refreshes the contents of the tree.
      *
@@ -1142,7 +1109,7 @@ define(function (require, exports, module) {
             selections  = this._selections,
             viewModel   = this._viewModel,
             deferred    = new $.Deferred();
-
+        
         this.setProjectRoot(projectRoot).then(function () {
             self.reopenNodes(openNodes).then(function () {
                 if (selections.selected) {
@@ -1201,7 +1168,7 @@ define(function (require, exports, module) {
                     }
                     self._viewModel.setDirectoryContents(self.makeProjectRelativeIfPossible(entry.fullPath), contents);
                 });
-
+                
                 // Exit early because we can't update the viewModel until we get the directory contents.
                 return;
             }
@@ -1218,12 +1185,12 @@ define(function (require, exports, module) {
                     _.find(removed, { fullPath: this._selections.selected })) {
                 this.setSelected(null);
             }
-
+            
             if (this._selections.rename &&
                     _.find(removed, { fullPath: this._selections.rename.path })) {
                 this.cancelRename();
             }
-
+            
             if (this._selections.context &&
                     _.find(removed, { fullPath: this._selections.context })) {
                 this.setContext(null);
@@ -1238,7 +1205,7 @@ define(function (require, exports, module) {
 
     /**
      * Closes the directory at path and recursively closes all of its children.
-     *
+     * 
      * @param {string} path Path of subtree to close
      */
     ProjectModel.prototype.closeSubtree = function (path) {
@@ -1258,7 +1225,7 @@ define(function (require, exports, module) {
         this.setDirectoryOpen(path, true).then(function () {
             var projectRelativePath = self.makeProjectRelativeIfPossible(path),
                 childNodes = self._viewModel.getChildDirectories(projectRelativePath);
-
+            
             Async.doInParallel(childNodes, function (node) {
                 return self.setDirectoryOpen(path + node, openOrClose);
             }, true).then(function () {
@@ -1267,7 +1234,7 @@ define(function (require, exports, module) {
                 d.reject(err);
             });
         });
-
+        
         return d.promise();
     };
 
@@ -1353,7 +1320,7 @@ define(function (require, exports, module) {
 
     // Init invalid characters string
     if (brackets.platform === "mac") {
-        _invalidChars = "?*|:/";
+        _invalidChars = "?*|:";
     } else if (brackets.platform === "linux") {
         _invalidChars = "?*|/";
     } else {
@@ -1368,14 +1335,12 @@ define(function (require, exports, module) {
     exports._invalidChars           = _invalidChars;
 
     exports.shouldShow              = shouldShow;
-    exports.defaultIgnoreGlobs      = defaultIgnoreGlobs;
     exports.isValidFilename         = isValidFilename;
     exports.EVENT_CHANGE            = EVENT_CHANGE;
     exports.EVENT_SHOULD_SELECT     = EVENT_SHOULD_SELECT;
     exports.EVENT_SHOULD_FOCUS      = EVENT_SHOULD_FOCUS;
     exports.ERROR_CREATION          = ERROR_CREATION;
     exports.ERROR_INVALID_FILENAME  = ERROR_INVALID_FILENAME;
-    exports.ERROR_NOT_IN_PROJECT    = ERROR_NOT_IN_PROJECT;
     exports.FILE_RENAMING           = FILE_RENAMING;
     exports.FILE_CREATING           = FILE_CREATING;
     exports.RENAME_CANCELLED        = RENAME_CANCELLED;

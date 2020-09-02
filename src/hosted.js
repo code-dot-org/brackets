@@ -103,31 +103,15 @@
             console.log("Bramble ready");
             // For debugging, attach to window.
             window.bramble = bramble;
-
-            bramble.on("capacityExceeded", function(amountInBytes) {
-                console.log("[Bramble] capacityExceeded event", amountInBytes);
-            });
-
-            bramble.on("capacityRestored", function() {
-                console.log("[Bramble] capacityRestored event.");
-            });
         });
 
         Bramble.once("error", function(err) {
             console.error("Bramble error", err);
-            window.alert("Fatal Error: " + err.message + ". If you're in Private Browsing mode, data can't be written.");
+            alert("Fatal Error: " + err.message + ". If you're in Private Browsing mode, data can't be written.");
         });
 
         Bramble.on("readyStateChange", function(previous, current) {
             console.log("Bramble readyStateChange", previous, current);
-        });
-
-        Bramble.on("offlineReady", function() {
-            console.log("Bramble available for offline use.");
-        });
-
-        Bramble.on("updatesAvailable", function() {
-            console.log("Bramble offline content updated, please refresh to use.");
         });
 
         // Setup the filesystem while Bramble is loading
@@ -138,19 +122,13 @@
         });
     }
 
-    // Support loading from src/ or dist/ (default) to make local dev easier
-    var isSrc = !!window.location.pathname.match(/\/src\/[^/]+$/);
-    var brambleModule;
-
-    if(isSrc) {
-        console.log("Bramble src/ build");
-        brambleModule = "../dist/bramble";
-    } else {
-        console.log("Bramble dist/ build");
-        brambleModule = "bramble";
-    }
-
-    require([brambleModule], function(Bramble) {
+    // Support loading from src/ or dist/ to make local dev easier
+    require(["bramble/client/main"], function(Bramble) {
         load(Bramble);
+    }, function(err) {
+        console.log("Unable to load Bramble from src/, trying from dist/");
+        require(["bramble"], function(Bramble) {
+            load(Bramble);
+        });
     });
 }());

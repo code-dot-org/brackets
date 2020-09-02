@@ -62,7 +62,7 @@
         listening = false;
     }
 
-    addEventListener("load", function() {
+    addEventListener("DOMContentLoaded", function() {
         // Restore last scroll position for this session (if any)
         document.body.scrollTop = sessionStorage.getItem(SCROLL_KEY)|0;
 
@@ -89,11 +89,11 @@
             }
         });
 
-        // Remember last scroll position for this document
-        addEventListener("scroll", function() {
-            sessionStorage.setItem(SCROLL_KEY, document.body.scrollTop);
-        }, false);
+    }, false);
 
+    // Remember last scroll position for this document
+    addEventListener("scroll", function() {
+        sessionStorage.setItem(SCROLL_KEY, document.body.scrollTop);
     }, false);
 
 }(window._Brackets_LiveDev_Transport));

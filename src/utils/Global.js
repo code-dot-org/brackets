@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 - present Adobe Systems Incorporated. All rights reserved.
+ * Copyright (c) 2012 Adobe Systems Incorporated. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -21,6 +21,10 @@
  *
  */
 
+
+/*jslint vars: true, plusplus: true, devel: true, nomen: true, indent: 4, maxerr: 50 */
+/*global define */
+
 /**
  * Initializes the global "brackets" variable and it's properties.
  * Modules should not access the global.brackets object until either
@@ -32,8 +36,7 @@ define(function (require, exports, module) {
 
     var configJSON      = require("text!config.json"),
         UrlParams       = require("utils/UrlParams").UrlParams,
-        Compatibility   = require("utils/Compatibility"),
-        envConfig       = require("envConfig");
+        Compatibility   = require("utils/Compatibility");
 
     // Define core brackets namespace if it isn't already defined
     //
@@ -80,9 +83,6 @@ define(function (require, exports, module) {
 
     global.brackets.inBrowser = !global.brackets.hasOwnProperty("fs");
 
-    // Specify whether this is a prod or dev environment for various runtime optimizations.
-    global.brackets.env = envConfig.env;
-
     // Are we in a desktop shell with a native menu bar?
     var hasNativeMenus = params.get("hasNativeMenus");
     if (hasNativeMenus) {
@@ -128,12 +128,5 @@ define(function (require, exports, module) {
     // only be able to load modules that have already been loaded once.
     global.brackets.getModule = require;
 
-    /* API for retrieving the global RequireJS config
-     * For internal use only
-     */
-    global.brackets._getGlobalRequireJSConfig = function () {
-        return global.require.s.contexts._.config;
-    };
-    
     exports.global = global;
 });

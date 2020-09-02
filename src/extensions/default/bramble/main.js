@@ -23,17 +23,18 @@ define(function (require, exports, module) {
         UI                   = require("lib/UI"),
         Launcher             = require("lib/launcher"),
         NoHost               = require("nohost/main"),
-        BrambleCodeSnippets  = require("lib/BrambleCodeSnippets"),
         ExtensionUtils       = brackets.getModule("utils/ExtensionUtils"),
         PostMessageTransport = require("lib/PostMessageTransport"),
         Path                 = brackets.getModule("filesystem/impls/filer/BracketsFiler").Path,
         FileSystemCache      = brackets.getModule("filesystem/impls/filer/FileSystemCache"),
-        UrlCache             = brackets.getModule("filesystem/impls/filer/UrlCache"),
+        BlobUtils            = brackets.getModule("filesystem/impls/filer/BlobUtils"),
+        XHRHandler           = require("lib/xhr/XHRHandler"),
+        Theme                = require("lib/Theme"),
         RemoteCommandHandler = require("lib/RemoteCommandHandler"),
-        RemoteEvents         = require("lib/RemoteEvents"),
-        Theme                = require("lib/Theme");
+        RemoteEvents         = require("lib/RemoteEvents");
 
-    ExtensionUtils.loadStyleSheet(module, "stylesheets/style.less");
+    ExtensionUtils.loadStyleSheet(module, "stylesheets/style.css");
+    ExtensionUtils.loadStyleSheet(module, "stylesheets/sidebarTheme.css");
 
     function parseData(data) {
         try {
@@ -41,6 +42,25 @@ define(function (require, exports, module) {
             return data || {};
         } catch(err) {
             return false;
+        }
+    }
+
+    function handleMessage(message) {
+        var currentDocUrl = Browser.getBrowserIframe().src;
+        var currentDocPath = BlobUtils.getFilename(currentDocUrl);
+        var currentDir = currentDocPath !== currentDocUrl ? Path.dirname(currentDocPath) : currentDocPath;
+        var requestedPath;
+
+        try {
+            message = parseData(message);
+        } catch(ex) {
+            console.error("[Brackets Browser LiveDev Error] Cannot handle message ", message);
+            return;
+        }
+
+        if(message.method === "XMLHttpRequest") {
+            requestedPath = Path.resolve(currentDir, Path.normalize(message.path));
+            XHRHandler.handleRequest(requestedPath);
         }
     }
 
@@ -79,34 +99,29 @@ define(function (require, exports, module) {
         // Make the spaceUnits and tabSize consistent
         PreferencesManager.set("spaceUnits", 2);
         PreferencesManager.set("tabSize", 2);
-        // CDO-Bramble: disable closeTags
-        PreferencesManager.set("closeTags", false);
+        // Allows the closeTags to indent consistently
+        PreferencesManager.set("closeTags", true);
         // Don't warn about opening file in split view (we steal second view for iframe)
         PreferencesManager.setViewState("splitview.multipane-info", true);
 
-        // We're all done loading and can pass startup state info back to the host app.
-        RemoteEvents.loaded();
-    }
-
-    // Fill our filesystem and URL caches before we start loading anything.
-    function setupCaches(callback) {
-        UrlCache.init(function(err) {
-            if(err) {
-                // TODO: what should we do here?  Means the CacheStorage failed.  Basically fatal.
-                console.error("[Bramble] unable to initialize URL cache", err);
+        window.addEventListener("message", function(e) {
+            var data = parseData(e.data);
+            if(!data) {
                 return;
             }
+            // TODO: this needs to get done better -- xhr handing from preview.
+            var type = data.type;
+            if(type === "message") {
+                handleMessage(data.message);
+                return;
+            } else if(type === "themeToggle") {
+                Theme.toggle(data.theme);
+                return;
+            }
+        }, false);
 
-            // Preload BlobURLs for all assets in the filesystem
-            FileSystemCache.refresh(function(err) {
-                if(err) {
-                    // Possibly non-critical error, warn at least, but keep going.
-                    console.warn("[Bramble] unable to preload all filesystem Blob URLs", err);
-                }
-
-                callback();
-            });
-        });
+        // We're all done loading and can pass startup state info back to the host app.
+        RemoteEvents.loaded();
     }
 
     // Normally, in Brackets proper, this happens in src/brackets.js. We've moved it here
@@ -127,16 +142,22 @@ define(function (require, exports, module) {
             });
 
             deferred.always(function() {
-                // Signal that Brackets is loaded
-                AppInit._dispatchReady(AppInit.APP_READY);
+                // Preload BlobURLs for all assets in the filesystem
+                FileSystemCache.refresh(function(err) {
+                    if(err) {
+                        // Possibly non-critical error, warn at least, but keep going.
+                        console.warn("[Bramble] unable to preload all filesystem Blob URLs", err);
+                    }
 
-                // Setup the iframe browser and Blob URL live dev servers and
-                // load the initial document into the preview.
-                startLiveDev();
+                    // Signal that Brackets is loaded
+                    AppInit._dispatchReady(AppInit.APP_READY);
 
-                BrambleCodeSnippets.init();
+                    // Setup the iframe browser and Blob URL live dev servers and
+                    // load the initial document into the preview.
+                    startLiveDev();
 
-                UI.initUI(finishStartup);
+                    UI.initUI(finishStartup);
+                });
             });
         });
     }
@@ -154,8 +175,7 @@ define(function (require, exports, module) {
         // to Brackets that it can keep going, which will pick this up.
         BrambleStartupState.project.init({
             root: data.mount.root,
-            filename: data.mount.filename,
-            zipFilenamePrefix: data.state.zipFilenamePrefix ||  "thimble-project"
+            filename: data.mount.filename
         });
 
         // Set initial UI state values (if present)
@@ -167,36 +187,15 @@ define(function (require, exports, module) {
             firstPaneWidth: data.state.firstPaneWidth,
             secondPaneWidth: data.state.secondPaneWidth,
             previewMode: data.state.previewMode,
-            readOnly: data.state.readOnly,
-            wordWrap: data.state.wordWrap,
-            allowAutocomplete: data.state.allowAutocomplete,
-            autoCloseTags: data.state.autoCloseTags,
-            autoUpdate: data.state.autoUpdate,
-            openSVGasXML: data.state.openSVGasXML,
-            allowJavaScript: data.state.allowJavaScript,
-            allowWhiteSpace: data.state.allowWhiteSpace
+            wordWrap: data.state.wordWrap
         });
 
-        // CDO-Bramble: Immediately set readOnly in PreferencesManager. If we wait for
-        // restoreState(), it is too late as a document will already have been
-        // opened.
-        var readOnly = BrambleStartupState.ui("readOnly");
-        if (typeof readOnly === "boolean") {
-            PreferencesManager.set("readOnly", readOnly);
-        } else if (typeof readOnly === "string") {
-            PreferencesManager.set("readOnly", readOnly.toLowerCase() === "true");
-        }
-
-        // Load the two theme extensions outside of
-        // the ExtensionLoader logic (avoids circular dependencies)
-        Theme.init(BrambleStartupState.ui("theme"));
-
         RemoteEvents.start();
-        setupCaches(loadProject);
+        loadProject();
     }
 
     // Signal to the hosting app that we're ready to mount a filesystem, and listen for
     // a mount request.
     window.addEventListener("message", init, false);
-    window.parent.postMessage(JSON.stringify({type: "bramble:readyToMount"}), "*");
+    parent.postMessage(JSON.stringify({type: "bramble:readyToMount"}), "*");
 });

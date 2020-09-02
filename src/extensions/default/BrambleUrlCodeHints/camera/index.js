@@ -8,11 +8,11 @@ define(function (require, exports, module) {
 
     var CommandManager = brackets.getModule("command/CommandManager");
     var Commands       = brackets.getModule("command/Commands");
-    var FilerUtils     = brackets.getModule("filesystem/impls/filer/FilerUtils");
 
     var Interface = require("camera/interface");
     var Video = require("camera/video");
     var Photo = require("camera/photo");
+    var persist = require("camera/utils").persist;
 
     var navigator = window.navigator;
     var getUserMedia =  navigator.getUserMedia ||
@@ -46,15 +46,16 @@ define(function (require, exports, module) {
     Camera.prototype.savePhoto = function(data) {
         var self = this;
 
-        FilerUtils
-            .writeFileAsBinary(this.savePath, data)
-            .done(function() {
-                // Update the file tree to show the new file
-                CommandManager.execute(Commands.FILE_REFRESH);
+        persist(this.savePath, data, function(err) {
+            if(err) {
+                return self.fail(err);
+            }
 
-                self.success(self.savePath);
-            })
-            .fail(self.fail);
+            // Update the file tree to show the new file
+            CommandManager.execute(Commands.FILE_REFRESH);
+
+            self.success(self.savePath);
+        });
     };
 
     // End the camera session if everything goes well

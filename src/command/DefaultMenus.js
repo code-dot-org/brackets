@@ -1,41 +1,41 @@
 /*
- * Copyright (c) 2013 - present Adobe Systems Incorporated. All rights reserved.
- *
+ * Copyright (c) 2013 Adobe Systems Incorporated. All rights reserved.
+ *  
  * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
+ * copy of this software and associated documentation files (the "Software"), 
+ * to deal in the Software without restriction, including without limitation 
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+ * and/or sell copies of the Software, and to permit persons to whom the 
  * Software is furnished to do so, subject to the following conditions:
- *
+ *  
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- *
+ *  
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
  * DEALINGS IN THE SOFTWARE.
- *
+ * 
  */
+
+
+/*jslint vars: true, plusplus: true, devel: true, nomen: true, indent: 4, maxerr: 50, regexp: true */
+/*global define, $, brackets, window */
 
 /**
  * Initializes the default brackets menu items.
  */
 define(function (require, exports, module) {
     "use strict";
-
-    var AppInit            = require("utils/AppInit"),
-        Commands           = require("command/Commands"),
-        Menus              = require("command/Menus"),
-        Strings            = require("strings"),
-        PreferencesManager = require("preferences/PreferencesManager"),
-        CommandManager     = require("command/CommandManager"),
-        ProjectManager     = require("project/ProjectManager"),
-        MainViewManager    = require("view/MainViewManager");
-
+    
+    var AppInit         = require("utils/AppInit"),
+        Commands        = require("command/Commands"),
+        Menus           = require("command/Menus"),
+        Strings         = require("strings");
+    
     AppInit.htmlReady(function () {
         /*
          * File menu
@@ -58,13 +58,13 @@ define(function (require, exports, module) {
         menu.addMenuDivider();
 // XXXBramble: we don't want this, it will trigger loading the ExtensionManager
 //        menu.addMenuItem(Commands.FILE_EXTENSION_MANAGER);
-
+        
         // suppress redundant quit menu item on mac
         if (brackets.platform !== "mac" || !brackets.nativeMenus) {
             menu.addMenuDivider();
             menu.addMenuItem(Commands.FILE_QUIT);
         }
-
+        
         /*
          * Edit  menu
          */
@@ -98,7 +98,7 @@ define(function (require, exports, module) {
         menu.addMenuItem(Commands.SHOW_CODE_HINTS);
         menu.addMenuDivider();
         menu.addMenuItem(Commands.TOGGLE_CLOSE_BRACKETS);
-
+        
         /*
          * Find menu
          */
@@ -114,7 +114,7 @@ define(function (require, exports, module) {
         menu.addMenuDivider();
         menu.addMenuItem(Commands.CMD_REPLACE);
         menu.addMenuItem(Commands.CMD_REPLACE_IN_FILES);
-
+        
         /*
          * View menu
          */
@@ -138,7 +138,7 @@ define(function (require, exports, module) {
         menu.addMenuItem(Commands.FILE_LIVE_HIGHLIGHT);
         menu.addMenuDivider();
         menu.addMenuItem(Commands.VIEW_TOGGLE_INSPECTION);
-
+        
         /*
          * Navigate menu
          */
@@ -151,8 +151,6 @@ define(function (require, exports, module) {
         menu.addMenuDivider();
         menu.addMenuItem(Commands.NAVIGATE_NEXT_DOC);
         menu.addMenuItem(Commands.NAVIGATE_PREV_DOC);
-        menu.addMenuItem(Commands.NAVIGATE_NEXT_DOC_LIST_ORDER);
-        menu.addMenuItem(Commands.NAVIGATE_PREV_DOC_LIST_ORDER);
         menu.addMenuDivider();
         menu.addMenuItem(Commands.NAVIGATE_SHOW_IN_FILE_TREE);
         menu.addMenuDivider();
@@ -162,7 +160,7 @@ define(function (require, exports, module) {
         menu.addMenuItem(Commands.CSS_QUICK_EDIT_NEW_RULE);
         menu.addMenuDivider();
         menu.addMenuItem(Commands.TOGGLE_QUICK_DOCS);
-
+        
         /*
          * Help menu
          */
@@ -191,16 +189,16 @@ define(function (require, exports, module) {
 //        menu.addMenuItem(Commands.HELP_SHOW_EXT_FOLDER);
 //
 //        var hasAboutItem = (brackets.platform !== "mac" || !brackets.nativeMenus);
-//
+//        
 //        // Add final divider only if we have a homepage URL or twitter URL or about item
 //        if (hasAboutItem || brackets.config.homepage_url || brackets.config.twitter_url) {
 //            menu.addMenuDivider();
 //        }
-//
+//        
 //        if (brackets.config.homepage_url) {
 //            menu.addMenuItem(Commands.HELP_HOMEPAGE);
 //        }
-//
+//        
 //        if (brackets.config.twitter_url) {
 //            menu.addMenuItem(Commands.HELP_TWITTER);
 //        }
@@ -208,11 +206,12 @@ define(function (require, exports, module) {
 //        if (hasAboutItem) {
 //            menu.addMenuItem(Commands.HELP_ABOUT);
 //        }
-
+        
+        
         /*
          * Context Menus
          */
-
+        
         // WorkingSet context menu - Unlike most context menus, we can't attach
         // listeners here because the DOM nodes for each pane's working set are
         // created dynamically. Each WorkingSetView attaches its own listeners.
@@ -227,25 +226,23 @@ define(function (require, exports, module) {
         workingset_cmenu.addMenuItem(Commands.CMD_REPLACE_IN_SUBTREE);
         workingset_cmenu.addMenuDivider();
         workingset_cmenu.addMenuItem(Commands.FILE_CLOSE);
-
+        
         var workingset_configuration_menu = Menus.registerContextMenu(Menus.ContextMenuIds.WORKING_SET_CONFIG_MENU);
         workingset_configuration_menu.addMenuItem(Commands.CMD_WORKINGSET_SORT_BY_ADDED);
         workingset_configuration_menu.addMenuItem(Commands.CMD_WORKINGSET_SORT_BY_NAME);
         workingset_configuration_menu.addMenuItem(Commands.CMD_WORKINGSET_SORT_BY_TYPE);
         workingset_configuration_menu.addMenuDivider();
         workingset_configuration_menu.addMenuItem(Commands.CMD_WORKING_SORT_TOGGLE_AUTO);
-
+        
         var splitview_menu = Menus.registerContextMenu(Menus.ContextMenuIds.SPLITVIEW_MENU);
         splitview_menu.addMenuItem(Commands.CMD_SPLITVIEW_NONE);
         splitview_menu.addMenuItem(Commands.CMD_SPLITVIEW_VERTICAL);
         splitview_menu.addMenuItem(Commands.CMD_SPLITVIEW_HORIZONTAL);
-
+        
         var project_cmenu = Menus.registerContextMenu(Menus.ContextMenuIds.PROJECT_MENU);
         project_cmenu.addMenuItem(Commands.FILE_NEW);
-// CDO-Bramble: not something we want
-//      project_cmenu.addMenuItem(Commands.FILE_NEW_FOLDER);
+        project_cmenu.addMenuItem(Commands.FILE_NEW_FOLDER);
         project_cmenu.addMenuItem(Commands.FILE_RENAME);
-        project_cmenu.addMenuItem(Commands.FILE_DOWNLOAD);
         project_cmenu.addMenuItem(Commands.FILE_DELETE);
 // XXXBramble: not something we want to support at the moment/ever
 //        project_cmenu.addMenuItem(Commands.NAVIGATE_SHOW_IN_OS);
@@ -254,24 +251,25 @@ define(function (require, exports, module) {
 //        project_cmenu.addMenuItem(Commands.CMD_REPLACE_IN_SUBTREE);
 //        project_cmenu.addMenuDivider();
 //        project_cmenu.addMenuItem(Commands.FILE_REFRESH);
+        
+        var editor_cmenu = Menus.registerContextMenu(Menus.ContextMenuIds.EDITOR_MENU);
+        // editor_cmenu.addMenuItem(Commands.NAVIGATE_JUMPTO_DEFINITION);
+        editor_cmenu.addMenuItem(Commands.TOGGLE_QUICK_EDIT);
+        editor_cmenu.addMenuItem(Commands.TOGGLE_QUICK_DOCS);
+        editor_cmenu.addMenuItem(Commands.EDIT_SELECT_ALL);
 
-// CDO-Bramble: disabling editor context menus so we can use native context menu with cut/copy/paste
-/*
         var inline_editor_cmenu = Menus.registerContextMenu(Menus.ContextMenuIds.INLINE_EDITOR_MENU);
         inline_editor_cmenu.addMenuItem(Commands.TOGGLE_QUICK_EDIT);
         inline_editor_cmenu.addMenuItem(Commands.EDIT_SELECT_ALL);
         inline_editor_cmenu.addMenuDivider();
         inline_editor_cmenu.addMenuItem(Commands.QUICK_EDIT_PREV_MATCH);
         inline_editor_cmenu.addMenuItem(Commands.QUICK_EDIT_NEXT_MATCH);
-*/
-
+        
         /**
          * Context menu for code editors (both full-size and inline)
          * Auto selects the word the user clicks if the click does not occur over
          * an existing selection
          */
-// CDO-Bramble: disabling editor context menus so we can use native context menu with cut/copy/paste
-/*
         $("#editor-holder").on("contextmenu", function (e) {
             require(["editor/EditorManager"], function (EditorManager) {
                 if ($(e.target).parents(".CodeMirror-gutter").length !== 0) {
@@ -286,44 +284,34 @@ define(function (require, exports, module) {
                     inlineWidget = EditorManager.getFocusedInlineWidget();
 
                 if (editor) {
+                    // If there's just an insertion point select the word token at the cursor pos so
+                    // it's more clear what the context menu applies to.
+                    if (!editor.hasSelection()) {
+                        editor.selectWordAt(editor.getCursorPos());
+
+                        // Prevent menu from overlapping text by moving it down a little
+                        // Temporarily backout this change for now to help mitigate issue #1111,
+                        // which only happens if mouse is not over context menu. Better fix
+                        // requires change to bootstrap, which is too risky for now.
+                        //e.pageY += 6;
+                    }
+
                     // Inline text editors have a different context menu (safe to assume it's not some other
                     // type of inline widget since we already know an Editor has focus)
                     if (inlineWidget) {
                         inline_editor_cmenu.open(e);
+                    } else {
+                        editor_cmenu.open(e);
                     }
                 }
             });
         });
-*/
 
         /**
-         * Context menu for folder tree
+         * Context menu for folder tree 
          */
         $("#project-files-container").on("contextmenu", function (e) {
-            if (!PreferencesManager.get("readOnly")) {
-                var blockedFileSelected = false;
-                var entry = ProjectManager.getContext();
-                if (!entry) {
-                    // Else use current file (not selected in ProjectManager if not visible in tree or workingset)
-                    entry = MainViewManager.getCurrentlyViewedFile();
-                }
-                if (entry) {
-                    var blockedPath = ProjectManager.getProjectRoot().fullPath + 'index.html';
-                    if (entry.fullPath.toLowerCase() === blockedPath.toLowerCase()) {
-                        blockedFileSelected = true;
-                    }
-                }
-
-                var renameCommand = CommandManager.get(Commands.FILE_RENAME);
-                if (renameCommand) {
-                    renameCommand.setEnabled(!blockedFileSelected);
-                }                
-                var deleteCommand = CommandManager.get(Commands.FILE_DELETE);
-                if (deleteCommand) {
-                    deleteCommand.setEnabled(!blockedFileSelected);
-                }
-                project_cmenu.open(e);
-            }
+            project_cmenu.open(e);
         });
 
         // Dropdown menu for workspace sorting
@@ -333,15 +321,10 @@ define(function (require, exports, module) {
         Menus.ContextMenu.assignContextMenuToSelector(".working-set-splitview-btn", splitview_menu);
 
         // Prevent the browser context menu since Brackets creates a custom context menu
-        // CDO-Bramble: disabling editor context menus so we can use native context menu with cut/copy/paste
         $(window).contextmenu(function (e) {
-            if ($(e.target).parents(".CodeMirror").length !== 0) {
-                Menus.closeAll();
-            } else {
-                e.preventDefault();
-            }
+            e.preventDefault();
         });
-
+        
         /*
          * General menu event processing
          */

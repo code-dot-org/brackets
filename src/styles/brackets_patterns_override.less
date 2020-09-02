@@ -1,5 +1,5 @@
 
-// Copyright (c) 2012 - present Adobe Systems Incorporated. All rights reserved.
+// Copyright (c) 2012 Adobe Systems Incorporated. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
 // copy of this software and associated documentation files (the "Software"),
@@ -45,7 +45,7 @@ a {
 a:hover {
     color: @bc-text-link;
     text-decoration: underline;
-
+    
     .dark & {
         color: @dark-bc-text-link;
     }
@@ -54,10 +54,12 @@ a:hover {
 a:focus {
     color: @bc-text-link;
     outline: 0;
+    box-shadow: 0 0 0 1px @bc-btn-border-focused-glow;
     text-decoration: none;
 
     .dark & {
         color: @dark-bc-text-link;
+        box-shadow: 0 0 0 1px @dark-bc-btn-border-focused;
     }
 }
 
@@ -71,10 +73,10 @@ a:focus {
     background: @project-panel-base-color;
     color: #bbb;
     letter-spacing: .01em;
-    text-shadow: 0 1px 2px @bc-shadow-large;
+    text-shadow: 0px 1px 2px @bc-shadow-large;
 
     .dark & {
-        text-shadow: 0 1px 2px @dark-bc-shadow-large;
+        text-shadow: 0px 1px 2px @dark-bc-shadow-large;
     }
 }
 
@@ -86,10 +88,10 @@ a:focus {
     z-index: @z-index-brackets-drag-ghost;
     background-color: transparent;
 
-    text-shadow: 0 1px 2px @bc-shadow-large;
-
+    text-shadow: 0px 1px 2px @bc-shadow-large;
+    
     .dark & {
-        text-shadow: 0 1px 2px @dark-bc-shadow-large;
+        text-shadow: 0px 1px 2px @dark-bc-shadow-large;
     }
 }
 
@@ -154,7 +156,6 @@ a:focus {
             max-height: 90vh;
             overflow-y: auto;
             -webkit-animation: none;
-            animation: none;
         }
     }
     .title {
@@ -178,7 +179,7 @@ a:focus {
     box-sizing: border-box;
 
     background: @main-toolbar-background-color;
-    padding: 7px 0;
+    padding: 7px 0px;
 
     // Ensure icons are vertically stacked & horizontally centered
     .vbox;
@@ -198,7 +199,7 @@ a:focus {
             background-repeat: no-repeat;
             display: block;
             height: 24px;
-            margin: 7px 0 0 3px;
+            margin: 7px 0px 0px 3px;
             width: 24px;
         }
 
@@ -258,6 +259,8 @@ a:focus {
 
         white-space: nowrap;
         overflow: hidden;
+        -ms-text-overflow: ellipsis;
+        -o-text-overflow: ellipsis;
         text-overflow: ellipsis;
     }
 
@@ -279,9 +282,8 @@ a:focus {
 
 // Dropdown Menu Animation
 .dropdown-menu {
-    .animation(dropdown, 90ms, cubic-bezier(0, .97, .2, .99));
+    .animation(dropdown, 90ms, cubic-bezier(0, .97, .2, .99), 0, 1);
     -webkit-transform-origin: 0 0;
-    transform-origin: 0 0;
     border: none;
     border-radius: @bc-border-radius;
 
@@ -303,7 +305,6 @@ a:focus {
 
 .codehint-menu.open .dropdown-menu {
     -webkit-animation: none;
-    animation: none;
 }
 
 .toolbar .nav, .context-menu, .codehint-menu {
@@ -366,13 +367,12 @@ a:focus {
         // Offset for better alignment with button
         top: 34px;
         margin-top: 0;
-
+        
         // Fix for #4593: don't let narrow parent (menubar item) cause text wrap at the float boundary between
         // the menu item label and keyboard shortcut. This takes away the "gotta get narrower" pressure.
         // This technique won't work on all browsers; see comments in #4593 for alternative options.
         width: -webkit-max-content;
         width: -moz-max-content;
-        width: max-content;
 
         background-color: @bc-menu-bg;
         .border-radius(0 0 3px 3px);
@@ -392,7 +392,7 @@ a:focus {
 
                 // Slightly less padding on left to account for checkmark.
                 // More padding on top than bottom to center font within its bg highlight better.
-                padding: 2px 10px 0 6px;
+                padding: 2px 10px 0px 6px;
 
                 color: @bc-menu-text;
                 text-shadow: none;
@@ -409,7 +409,12 @@ a:focus {
 
                 &:hover, &.highlight {
                     color: @bc-menu-text;
-                    background-color: @bc-bg-highlight;
+                    background: @bc-bg-highlight;
+
+                    .dark & {
+                        color: @dark-bc-menu-text;
+                        background: @dark-bc-bg-highlight;
+                    }
                 }
 
                 &.disabled {
@@ -427,13 +432,27 @@ a:focus {
                         }
                     }
                 }
+
+                /* hidden checkmark for all list item content ensures consistent left spacing */
+                &::before {
+                    content: "✓\00a0"; /* non-breaking space */
+                    visibility: hidden;
+                }
+                /* toggle checkmark visibility */
+                &.checked::before {
+                    visibility: visible;
+                }
             }
         }
 
         .divider {
             background-color: @bc-menu-separator;
             border: 0;
-            margin: 0;
+            margin: 5px 1px;
+
+            .dark & {
+                 background-color: @dark-bc-menu-separator;
+            }
         }
     }
 
@@ -454,7 +473,7 @@ a:focus {
     list-style-type: none;
 
     .dropdown-menu {
-        border-radius: 0;
+        .border-radius(3px);
         box-shadow: 0 3px 9px @bc-shadow;
 
         .dark & {
@@ -469,45 +488,50 @@ a:focus {
 
 .codehint-menu {
     opacity: 0;
-
     .dropdown-menu {
         box-shadow: 0 3px 9px @bc-shadow;
-        max-height: 170px;
+        max-height: 160px;
         overflow-y: auto;
-        overflow-x: hidden;
         padding: 0;
 
         .dark & {
             box-shadow: 0 3px 9px @dark-bc-shadow;
         }
 
-        .matched-hint {
-          color: inherit;
-        }
-
         li {
             a {
-                padding: 8px 10px;
-                color: rgba(0,0,0,.6);
-                font-size: 15px;
-                cursor: pointer;
+                // Less padding than on menus. More padding on top than bottom
+                // to center font within its bg highlight better.
+                padding: 2px 20px 0px 0px;
 
                 // Don't show highlighting on hover for code hints...
                 &:hover {
-                    background-image: none;
+                    color: @bc-menu-text;
+                    background-color: @bc-menu-bg;
 
                     .dark & {
-                        background-image: none;
+                        color: @dark-bc-menu-text;
+                        background-color: @dark-bc-menu-bg;
+                    }
+                }
+
+                // ...except for selected item
+                &.highlight:hover {
+                    color: @bc-menu-text;
+                    background-color: @bc-bg-highlight;
+
+                    .dark & {
+                        color: @dark-bc-menu-text;
+                        background-color: @dark-bc-bg-highlight;
                     }
                 }
 
                 .color-swatch {
+                    border-radius: 2px;
                     width: 12px;
                     height: 12px;
-                    display: inline-block;
-                    position: relative;
-                    top: 1px;
-                    margin-right: 8px;
+                    float: left;
+                    margin: 2px -8px 0 4px;
                     box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.24);
 
                     .dark & {
@@ -518,26 +542,10 @@ a:focus {
                 // Used to align non-swatch items with the others. Only applied
                 // if there's at least one item with a swatch in the list
                 .no-swatch-margin {
-                    margin-left: 24px;
+                    margin-left: 8px;
                 }
             }
         }
-    }
-}
-
-.dark .codehint-menu .dropdown-menu {
-
-    .matched-hint {
-      color: inherit;
-    }
-
-    li a {
-      color: rgba(255,255,255,.6);
-    }
-
-    li a:hover, li a.highlight {
-        background: rgba(255,255,255,.2);
-        color: rgba(255,255,255,.8);
     }
 }
 
@@ -563,8 +571,8 @@ a:focus {
 .btn-dropdown::after {
     content: "";
     display: block;
-    height: 0;
-    width: 0;
+    height: 0px;
+    width: 0px;
     position: absolute;
     right: 7px;
     top: 11px;
@@ -586,7 +594,7 @@ a:focus {
     &.dropdown-menu:focus {
         outline: none;
     }
-
+    
     &.dropdown-menu {
         border: none;
         border-radius: @bc-border-radius;
@@ -604,11 +612,11 @@ a:focus {
             box-shadow: 0 3px 9px @dark-bc-shadow;
         }
     }
-
+    
     &.dropdown-menu li a {
         padding: 1px 15px 1px 15px;
         color: @bc-menu-text;
-
+        
         .dark & {
             color: @dark-bc-menu-text;
         }
@@ -621,11 +629,11 @@ a:focus {
             }
         }
     }
-
+    
     &.dropdown-menu .stylesheet-link {
         display: block;
     }
-
+    
     &.dropdown-menu a.selected {
         background: @bc-bg-highlight;
         color: @bc-menu-text !important;
@@ -649,7 +657,7 @@ a:focus {
             display: inline-block;
         }
     }
-
+    
     &.dropdown-menu a:hover {
         /* toggle checkmark visibility */
         &.checked::before {
@@ -670,15 +678,14 @@ a:focus {
 /* Status bar language picker's DropdownButton */
 .dropdownbutton-popup.dropdown-status-bar {
     -webkit-transform-origin: 0 100%;
-    transform-origin: 0 100%;
     height: auto;
     max-height: 80%;
-
+    
     // Improve how bottom of the dropdown joins with top of status bar button
     margin-top: -6px;
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
-
+    
     li a .default-language {
         font-style: italic;
         color: @bc-text-quiet;
@@ -706,7 +713,7 @@ a:focus {
     .stylesheet-link, .stylesheet-name {
         white-space: nowrap;
     }
-
+    
     .stylesheet-name {
         color: @bc-text;
 
@@ -714,7 +721,7 @@ a:focus {
             color: @dark-bc-text;
         }
     }
-
+    
     .stylesheet-dir {
         color: @bc-text-quiet;
 
@@ -748,7 +755,7 @@ a:focus {
     position: relative;
     top: 0;
     margin: auto;
-    .animation(modal, 240ms, cubic-bezier(0, 1.05, .35, 1));
+    .animation(modal, 240ms, cubic-bezier(0, 1.05, .35, 1), 0, 1);
 
     .dark & {
         background-color: @dark-bc-panel-bg;
@@ -850,7 +857,7 @@ a:focus {
 }
 
 .modal-backdrop {
-    .animation (backdrop, 200ms, linear);
+    .animation (backdrop, 200ms, linear, 0, 1);
     opacity: @bc-modal-backdrop-opacity;
 
     .dark & {
@@ -897,16 +904,8 @@ a:focus {
     margin-bottom: 20px;
     font-weight: normal;
 
-    .dialog-filename, b {
-        font-weight: 600;
-    }
-
     .dark & {
         color: @dark-bc-text;
-
-        b {
-          color: @dark-bc-text;
-        }
     }
 }
 
@@ -979,15 +978,15 @@ a[href^="http"] {
             // Enable text selection
             cursor: auto;
             .user-select(text);
-
+            
             h3 {
                 font-weight: normal;
                 margin: 0 0 10px;
             }
-
+            
             ul {
                 margin-bottom: 0 0 20px;
-
+                
                 > li {
                     margin-bottom: 10px;
                 }
@@ -1025,7 +1024,7 @@ a[href^="http"] {
 .extension-manager-dialog {
     background-color: @bc-panel-bg-promoted;
     width: 760px;
-
+    
     .dark & {
         background-color: @dark-bc-panel-bg-promoted;
     }
@@ -1033,7 +1032,7 @@ a[href^="http"] {
     .modal-header {
         border-bottom: none;
         padding: 0;
-
+        
         .nav-tabs {
             margin: 0;
             border-color: @bc-panel-separator;
@@ -1105,7 +1104,7 @@ a[href^="http"] {
                     border-color: @dark-bc-btn-border @dark-bc-btn-border transparent @dark-bc-btn-border;
                 }
             }
-
+            
             > .active > a:focus {
                 background-color: @bc-panel-bg;
                 border-color: @bc-btn-border-focused @bc-btn-border-focused transparent @bc-btn-border-focused;
@@ -1187,7 +1186,7 @@ a[href^="http"] {
         overflow-y: scroll;
         background-color: @bc-panel-bg;
         padding: 0;
-
+        
         .dark & {
             background-color: @dark-bc-panel-bg;
         }
@@ -1452,7 +1451,7 @@ input[type="color"],
     &.top .tooltip-arrow {
         border-top-color: @bc-menu-bg;
         left: 50%;
-
+        
         .dark & {
             border-top-color: @dark-bc-menu-bg;
         }
@@ -1460,7 +1459,7 @@ input[type="color"],
     &.right .tooltip-arrow {
         border-right-color: @bc-menu-bg;
         top: 15px;
-
+        
         .dark & {
             border-right-color: @dark-bc-menu-bg;
         }
@@ -1468,7 +1467,7 @@ input[type="color"],
     &.left .tooltip-arrow {
         border-left-color: @bc-menu-bg;
         top: 15px;
-
+        
         .dark & {
             border-left-color: @dark-bc-menu-bg;
         }
@@ -1476,7 +1475,7 @@ input[type="color"],
     &.bottom .tooltip-arrow {
         border-bottom-color: @bc-menu-bg;
         left: 50%;
-
+        
         .dark & {
             border-bottom-color: @dark-bc-menu-bg;
         }
@@ -1526,7 +1525,6 @@ input[type="color"],
     box-shadow: inset 0 1px @bc-highlight-hard;
     -webkit-font-smoothing: antialiased;
     text-shadow: none;
-    margin: 3px 0 3px 3px;
 
     .dark & {
         background-color: @dark-bc-btn-bg;
@@ -1580,7 +1578,7 @@ input[type="color"],
             color: @dark-bc-text-alt;
         }
     }
-
+    
     &:active:not([disabled]) {
         background-image: none;
         background-color: @bc-btn-bg-down;
@@ -1643,7 +1641,7 @@ input[type="color"],
             }
         }
     }
-
+    
     // Update Button Type
     &.update {
         background-color: @bc-secondary-btn-bg;
@@ -1652,7 +1650,8 @@ input[type="color"],
         color: @bc-text-alt;
         font-weight: @font-weight-semibold;
         text-shadow: 0 -1px 0 @bc-shadow-small;
-
+        margin-right: 3px;
+        
         .dark & {
             background-color: @dark-bc-secondary-btn-bg;
             border-color: @dark-bc-secondary-btn-border;
@@ -1841,6 +1840,33 @@ input[type="checkbox"] {
     margin: 0 5px 0 0;
 }
 
+input[type="checkbox"] {
+    height: 13px;
+    width: 13px;
+    vertical-align: middle;
+    border: 1px solid @bc-btn-border;
+    border-radius: @bc-border-radius;
+    background-color: @bc-btn-bg;
+    -webkit-appearance: none;
+    box-shadow: inset 0 1px 0 @bc-highlight;
+
+    .dark & {
+        border: 1px solid @dark-bc-btn-border;
+        background-color: @dark-bc-btn-bg;
+        box-shadow: inset 0 1px 0 @dark-bc-highlight;
+    }
+}
+
+input[type="checkbox"]:active:not(:disabled) {
+    background-color: @bc-btn-bg-down;
+    box-shadow: inset 0 1px 0 @bc-shadow-small;
+
+    .dark & {
+        background-color: @dark-bc-btn-bg-down;
+        box-shadow: inset 0 1px 0 @dark-bc-shadow-small;
+    }
+}
+
 select:focus,
 input[type="checkbox"]:focus {
     outline:none;
@@ -1866,13 +1892,13 @@ select {
     &:active {
         background-color: @bc-btn-bg-down;
         box-shadow: inset 0 1px 0 @bc-shadow-small;
-
+        
         .dark & {
             background-color: @dark-bc-btn-bg-down;
             box-shadow: inset 0 1px 0 @dark-bc-shadow-small;
         }
     }
-
+    
     > option { // Windows (but not Mac) lets you style the dropdown items
         background-color: @bc-menu-bg;
         color: @bc-menu-text;
@@ -1891,9 +1917,25 @@ select {
     }
 }
 
+input[type="checkbox"]:checked:before {
+    font-weight: bold;
+    color: @bc-text;
+    content: '\2713';
+    -webkit-margin-start: 0;
+    position: relative;
+    left: 2px;
+    top: -7px;
+    font-size: 16px;
+
+    .dark & {
+        color: @dark-bc-text;
+    }
+}
+
 code {
     border: none;
 }
+
 
 .close {
     color: @bc-text;
@@ -1919,7 +1961,7 @@ code {
 .dropdown-menu {
     background-color: @bc-menu-bg;
     color: @bc-menu-text;
-
+    
     .dark & {
         background-color: @dark-bc-menu-bg;
         color: @dark-bc-menu-text;
@@ -1928,13 +1970,17 @@ code {
     .divider {
         background-color: @bc-menu-separator;
         border: none;
+
+        .dark & {
+            background-color: @dark-bc-menu-separator;
+        }
     }
 }
 
 .form-horizontal {
     .controls {
         margin-left: 170px;
-
+        
         input[type='checkbox'] {
              margin-top: 8px;
         }

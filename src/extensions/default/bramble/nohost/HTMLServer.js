@@ -6,18 +6,18 @@ define(function (require, exports, module) {
     var BaseServer              = brackets.getModule("LiveDevelopment/Servers/BaseServer").BaseServer,
         LiveDevelopmentUtils    = brackets.getModule("LiveDevelopment/LiveDevelopmentUtils"),
         Content                 = brackets.getModule("filesystem/impls/filer/lib/content"),
-        UrlCache                = brackets.getModule("filesystem/impls/filer/UrlCache"),
-        FilerUtils              = brackets.getModule("filesystem/impls/filer/FilerUtils"),
-        Path                    = FilerUtils.Path,
+        BlobUtils               = brackets.getModule("filesystem/impls/filer/BlobUtils"),
+        Filer                   = brackets.getModule("filesystem/impls/filer/BracketsFiler"),
+        Path                    = Filer.Path,
         HTMLRewriter            = brackets.getModule("filesystem/impls/filer/lib/HTMLRewriter"),
         CSSRewriter             = brackets.getModule("filesystem/impls/filer/lib/CSSRewriter");
 
     var Compatibility           = require("lib/compatibility"),
         MouseManager            = require("lib/MouseManager"),
-        PostMessageTransport    = require("lib/PostMessageTransport"),
         LinkManager             = require("lib/LinkManager");
 
-    var _shouldUseBlobURL;
+    var fs = Filer.fs(),
+        _shouldUseBlobURL;
 
     function _isHTML(path) {
         return LiveDevelopmentUtils.isStaticHtmlFileExt(path);
@@ -35,12 +35,13 @@ define(function (require, exports, module) {
     HTMLServer.prototype = Object.create(BaseServer.prototype);
     HTMLServer.prototype.constructor = HTMLServer;
 
+    //Returns a pre-generated blob url based on path
     HTMLServer.prototype.pathToUrl = function(path) {
-        return UrlCache.getUrl(path);
+        return BlobUtils.getUrl(path);
     };
-
+    //Returns a path based on blob url
     HTMLServer.prototype.urlToPath = function(url) {
-        return UrlCache.getFilename(url);
+        return BlobUtils.getFilename(url);
     };
 
     HTMLServer.prototype.readyToServe = function () {
@@ -98,7 +99,7 @@ define(function (require, exports, module) {
      * If a livedoc exists (HTML or CSS), serve the instrumented version of the file.
      */
     HTMLServer.prototype.serveLiveDocForUrl = function(url, callback) {
-        var path = UrlCache.getFilename(url);
+        var path = BlobUtils.getFilename(url);
         this.serveLiveDocForPath(path, callback);
     };
 
@@ -112,8 +113,9 @@ define(function (require, exports, module) {
                     callback(err);
                     return;
                 }
-                UrlCache.createURL(path, css, "text/css", callback);
+                callback(null, BlobUtils.createURL(path, css, "text/css"));
             });
+
         }
 
         function serveHTML(path, html, server, callback) {
@@ -122,20 +124,8 @@ define(function (require, exports, module) {
                     callback(err);
                     return;
                 }
-
-                UrlCache.createURL(path, html, "text/html", function(err, url) {
-                    if(err) {
-                        callback(err);
-                    }
-
-                    // If the browser can't handle a Blob URL, and we have one, send back HTML
-                    if(Content.isBlobURL(url) && !_shouldUseBlobURL) {
-                        callback(null, html);
-                        return;
-                    }
-
-                    callback(null, url);
-                });
+                // We either serve raw HTML or a Blob URL depending on browser compatibility.
+                callback(null, _shouldUseBlobURL ? BlobUtils.createURL(path, html, "text/html") : html);
             });
         }
 
@@ -151,20 +141,16 @@ define(function (require, exports, module) {
 
         // Prefer the LiveDoc, but use what's on disk if we have to
         if(liveDocument) {
-            return serve(liveDocument.getResponseData().body);
-        }
-
-        FilerUtils
-            .readFileAsUTF8(path)
-            .fail(callback)
-            .done(function(content) {
-                if(!_isHTML(path)) {
-                    return serve(content);
+            serve(liveDocument.getResponseData().body);
+        } else {
+            fs.readFile(path, "utf8", function(err, content) {
+                if(err) {
+                    return callback(err);
                 }
 
-                // Since we don't have a LiveDoc (yet) and aren't instrumenting fully,
-                // at least inject the necessary remote scripts so preview APIs work.
-                var scripts = PostMessageTransport.getRemoteScript(path);
+                // Since we're not instrumenting this doc fully for some reason,
+                // at least inject the scroll manager so we can track scroll position.
+                var scripts = MouseManager.getRemoteScript(path) + LinkManager.getRemoteScript();
                 var scriptsWithEndTag = scripts + "$&";
                 var headRegex = new RegExp(/<\/\s*head>/);
                 var htmlRegex = new RegExp(/<\/\s*html>/);
@@ -174,15 +160,16 @@ define(function (require, exports, module) {
                 if(headRegex.test(content)) {
                     content = content.replace(headRegex, scriptsWithEndTag);
                 } else if(htmlRegex.test(content)) {
-                    // Otherwise add them at the end of the <html> element
+                // Otherwise add them at the end of the <html> element
                     content = content.replace(htmlRegex, scriptsWithEndTag);
                 } else {
-                    // Otherwise just add it at the end of the content
+                // Otherwise just add it at the end of the content
                     content += scripts;
                 }
 
                 serve(content);
             });
+        }
     };
 
     exports.HTMLServer = HTMLServer;

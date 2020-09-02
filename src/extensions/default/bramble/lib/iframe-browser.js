@@ -32,7 +32,7 @@ define(function (require, exports, module) {
 
         // If iframe does not exist, then show it
         if(result.rows === 1 && result.columns === 1) {
-            setLayout();
+            show(_orientation);
         }
         /*
          *Creating the empty iFrame we'll be using
@@ -46,7 +46,7 @@ define(function (require, exports, module) {
             frameborder: 0
         };
         //Append iFrame to _panel
-        $("<iframe>", iframeConfig).addClass("iframeWidthHeight").prop("allow", "geolocation *; microphone *; camera *").appendTo(_panel);
+        $("<iframe>", iframeConfig).addClass("iframeWidthHeight").appendTo(_panel);
     }
 
     /*
@@ -68,7 +68,7 @@ define(function (require, exports, module) {
      * orientation: Takes one argument of either VERTICAL_ORIENTATION OR
      * HORIZONTAL_ORIENTATION and uses that to change the layout accordingly
      */
-    function setLayout() {
+    function show() {
         if(_orientation === VERTICAL_ORIENTATION) {
             CommandManager.execute(Commands.CMD_SPLITVIEW_VERTICAL);
         }
@@ -86,11 +86,8 @@ define(function (require, exports, module) {
      * preview, if it exist. They will be filled
      * with the url (or raw HTML) that has been passed to this function
      */
-    function update(urlOrHTML, callback) {
+    function update(urlOrHTML) {
         if(!urlOrHTML) {
-            if (callback) {
-                callback(new Error("No URL or HTML"));
-            }
             return;
         }
 
@@ -100,63 +97,129 @@ define(function (require, exports, module) {
         Compatibility.supportsIFrameHTMLBlobURL(function(err, shouldUseBlobURL) {
             if(err) {
                 console.error("[Brackets IFrame-Browser] Unexpected error:", err);
-                if (callback) {
-                    callback(err);
-                }
                 return;
             }
 
             if(iframe) {
                 if(shouldUseBlobURL) {
-                    iframe.onload = function () {
-                        if (callback) {
-                            callback(err);
-                        }
-                    };
                     iframe.src = urlOrHTML;
-                    return;
                 } else {
                     doc = iframe.contentWindow.document.open("text/html", "replace");
                     doc.write(urlOrHTML);
                     doc.close();
                 }
             }
-            if (callback) {
-                callback(err);
+
+            var detachedPreview = getDetachedPreview();
+            if(detachedPreview) {
+                isReload = true;
+                if(!shouldUseBlobURL) {
+                    doc = detachedPreview.document.open("text/html", "replace");
+                    doc.write(urlOrHTML);
+                    doc.close();
+                } else {
+                    detachedPreview.location.replace(urlOrHTML);
+                }
             }
         });
     }
 
     // Return reference to iframe element or null if not available.
     function getBrowserIframe() {
-        return window.document.getElementById("bramble-iframe-browser");
+        return document.getElementById("bramble-iframe-browser");
     }
 
     /**
      * Used to hide second pane, spawn detached preview, and attach beforeunload listener
      */
-    function hide() {
-        Resizer.hide("#second-pane");
-        $("#first-pane").addClass("expandEditor");
+    function detachPreview() {
+        var iframe = getBrowserIframe();
+
+        if(!iframe) {
+            return;
+        }
+
+        PostMessageTransport.reload();
+
+        var currentURL = iframe.src;
+        // Open detached preview window
+        detachedWindow = window.open(currentURL, "Preview");
+
+        return Compatibility.supportsIFrameHTMLBlobURL(function(err, shouldUseBlobURL) {
+            if(err) {
+                console.error("[Brackets IFrame-Browser] Unexpected error:", err);
+                return;
+            }
+
+            if(!shouldUseBlobURL) {
+                var doc = detachedWindow.document.open("text/html", "replace");
+                doc.write(iframe.contentWindow.document.documentElement.outerHTML);
+                doc.close();
+            }
+
+            Resizer.hide("#second-pane");
+            $("#first-pane").addClass("expandEditor");
+            $("#liveDevButton").removeClass("liveDevButtonDetach");
+            $("#liveDevButton").addClass("liveDevButtonAttach");
+
+            // Adds tooltip prompting user to return to attached preview
+            StatusBar.addIndicator("liveDevButtonBox", $("#liveDevButtonBox"), true, "",
+                                   "Click to return preview to current window", "mobileViewButtonBox");
+
+            return detachedWindow;
+        });
+    }
+
+    // Return reference of open window if it exists and isn't closed
+    function getDetachedPreview() {
+        if(detachedWindow && !detachedWindow.closed) {
+            return detachedWindow;
+        }
     }
 
     /**
      * Used to show second pane, change lilveDevButton background and close the detached preview
      */
-    function show() {
+    function attachPreview() {
+        var detachedPreview = getDetachedPreview();
+        if(detachedPreview && isReload) {
+            isReload = false;
+            return;
+        }
+
+        if(detachedPreview) {
+            detachedPreview.removeEventListener("beforeunload", attachPreview, false);
+            detachedPreview.close();
+        }
+
         Resizer.show("#second-pane");
+        $("#liveDevButton").removeClass("liveDevButtonAttach");
+        $("#liveDevButton").addClass("liveDevButtonDetach");
         $("#first-pane").removeClass("expandEditor");
+
+        // Adds tooltip prompting user to detach preview
+        StatusBar.addIndicator("liveDevButtonBox", $("#liveDevButtonBox"), true, "",
+                               "Click to open preview in separate window", "mobileViewButtonBox");
+    }
+
+    function setListener() {
+        var detachedPreview = getDetachedPreview();
+        if(detachedPreview) {
+            detachedPreview.addEventListener("beforeunload", attachPreview, false);
+        }
     }
 
     // Define public API
     exports.init = init;
     exports.update = update;
-    exports.setLayout = setLayout;
+    exports.show = show;
     exports.getBrowserIframe = getBrowserIframe;
     // Expose these constants on our module, so callers can use them with setOrientation()
     exports.HORIZONTAL_ORIENTATION = HORIZONTAL_ORIENTATION;
     exports.VERTICAL_ORIENTATION = VERTICAL_ORIENTATION;
     exports.setOrientation = setOrientation;
-    exports.show = show;
-    exports.hide = hide;
+    exports.getDetachedPreview = getDetachedPreview;
+    exports.attachPreview = attachPreview;
+    exports.detachPreview = detachPreview;
+    exports.setListener = setListener;
 });
