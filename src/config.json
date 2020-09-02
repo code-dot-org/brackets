@@ -23,7 +23,7 @@
         "healthDataServerURL": "https://health.brackets.io/healthDataLog"
     },
     "name": "@code-dot-org/bramble",
-    "version": "0.1.28",
+    "version": "0.1.29",
     "homepage": "https://github.com/code-dot-org/bramble",
     "repository": {
         "type": "git",
