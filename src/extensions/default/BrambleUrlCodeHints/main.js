@@ -29,6 +29,7 @@ define(function (require, exports, module) {
 
     // Brackets modules
     var AppInit         = brackets.getModule("utils/AppInit"),
+        Async           = brackets.getModule("utils/Async"),
         CodeHintManager = brackets.getModule("editor/CodeHintManager"),
         CSSUtils        = brackets.getModule("language/CSSUtils"),
         FileSystem      = brackets.getModule("filesystem/FileSystem"),
@@ -38,7 +39,8 @@ define(function (require, exports, module) {
         ExtensionUtils  = brackets.getModule("utils/ExtensionUtils"),
         EditorManager   = brackets.getModule("editor/EditorManager"),
         Path            = brackets.getModule("filesystem/impls/filer/FilerUtils").Path,
-        Content         = brackets.getModule("filesystem/impls/filer/lib/content"),
+        StartupState    = brackets.getModule("bramble/StartupState"),
+        PathUtils       = brackets.getModule("thirdparty/path-utils/path-utils"),
         Camera          = require("camera/index"),
         Selfie          = require("selfie"),
 
@@ -49,7 +51,7 @@ define(function (require, exports, module) {
         htmlAttrs,
         styleModes      = ["css", "text/x-less", "text/x-scss"];
 
-    ExtensionUtils.loadStyleSheet(module, "style.css");
+    ExtensionUtils.loadStyleSheet(module, "style.less");
 
     /**
      * @constructor
@@ -63,15 +65,15 @@ define(function (require, exports, module) {
      * @return {Array.<string>|$.Deferred} The (possibly deferred) hints.
      */
     BrambleUrlCodeHints.prototype._getUrlList = function (query) {
-        var directory,
-            doc,
+        var doc,
             docDir,
             queryDir = "",
             queryUrl,
             result = [],
             self,
             targetDir,
-            unfiltered = [];
+            unfiltered = [],
+            projectRoot = StartupState.project("root");
 
         doc = this.editor && this.editor.document;
         if (!doc || !doc.file) {
@@ -81,7 +83,7 @@ define(function (require, exports, module) {
         docDir = FileUtils.getDirectoryPath(doc.file.fullPath);
 
         // get relative path from query string
-        queryUrl = window.PathUtils.parseUrl(query.queryStr);
+        queryUrl = PathUtils.parseUrl(query.queryStr);
         if (queryUrl) {
             queryDir = queryUrl.directory;
         }
@@ -113,7 +115,6 @@ define(function (require, exports, module) {
         // valid and re-used from cache. Filtering based on user input is done outside
         // of this method. When user moves to a new folder, then the cache is deleted,
         // and file/folder info for new folder is then retrieved.
-
         if (this.cachedHints) {
             // url hints have been cached, so determine if they're stale
             if (!this.cachedHints.query ||
@@ -132,7 +133,6 @@ define(function (require, exports, module) {
             unfiltered = this.cachedHints.unfiltered;
 
         } else {
-            directory = FileSystem.getDirectoryForPath(targetDir);
             self = this;
 
             if (self.cachedHints && self.cachedHints.deferred) {
@@ -144,29 +144,57 @@ define(function (require, exports, module) {
             self.cachedHints.unfiltered = [];
             self.cachedHints.imageUrl = self.imageUrl;
 
-            directory.getContents(function (err, contents) {
-                var currentDeferred, entryStr, syncResults;
+            function deepWalk(path, parentPath, callback) {
+                var directory = FileSystem.getDirectoryForPath(Path.join(parentPath, path));
+
+                directory.getContents(function (err, contents) {
+                    if(err) {
+                        return callback(err);
+                    }
+
+                    Async.doSequentially(contents, function(entry) {
+                        var deferred = new $.Deferred();
+                        var filename;
+
+                        if (!entry._isDirectory) {
+                            if (ProjectManager.shouldShow(entry)) {
+                                // code hints show the unencoded string so the
+                                // choices are easier to read.  The encoded string
+                                // will still be inserted into the editor.
+                                filename = Path.join(parentPath, path, entry._name);
+                                filename = filename.replace(projectRoot + "/", "");
+                                unfiltered.push(filename);
+                            }
+                            return deferred.resolve().promise();
+                        }
+
+                        deepWalk(entry._name, Path.join(parentPath, path), function(err) {
+                            if(err) {
+                                return deferred.reject();
+                            }
+                            deferred.resolve();
+                        });
+
+                        return deferred.promise();
+                    }, false)
+                    .done(callback)
+                    .fail(function() {
+                        callback(new Error("unable to find image paths"));
+                    });
+                });
+            }
+
+            deepWalk(targetDir, queryDir, function(err, contents) {
+                var currentDeferred = self.cachedHints.deferred;
+                var syncResults;
+
                 if(err) {
+                    console.log("[Bramble Error] couldn't find image paths:", err);
+                    if (currentDeferred && currentDeferred.state() === "pending") {
+                        currentDeferred.reject();
+                    }
                     return;
                 }
-
-                contents.forEach(function (entry) {
-                    if (!ProjectManager.shouldShow(entry)) {
-                        return;
-                    }
-
-                    // convert to doc relative path
-                    entryStr = queryDir + entry._name;
-                    // TODO: should do a recursive walk of the files
-                    if (entry._isDirectory) {
-                        return;
-                    }
-
-                    // code hints show the unencoded string so the
-                    // choices are easier to read.  The encoded string
-                    // will still be inserted into the editor.
-                    unfiltered.push(entryStr);
-                });
 
                 self.cachedHints.unfiltered = unfiltered;
                 self.cachedHints.query      = query;
@@ -212,7 +240,11 @@ define(function (require, exports, module) {
         // add file/folder entries
         unfiltered.forEach(function (item) {
             if(isImage) {
-                if(Content.isImage(Path.extname(item))) {
+                if(Array.isArray(item)){
+                    item.forEach(function(img){
+                        result.push(img);
+                    });
+                } else {
                     result.push(item);
                 }
             } else {

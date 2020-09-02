@@ -14,18 +14,21 @@ define(function (require, exports, module) {
 
     var EventDispatcher     = brackets.getModule("utils/EventDispatcher"),
         LiveDevMultiBrowser = brackets.getModule("LiveDevelopment/LiveDevMultiBrowser"),
-        BlobUtils           = brackets.getModule("filesystem/impls/filer/BlobUtils"),
+        UrlCache            = brackets.getModule("filesystem/impls/filer/UrlCache"),
         BrambleEvents       = brackets.getModule("bramble/BrambleEvents"),
-        Path                = brackets.getModule("filesystem/impls/filer/BracketsFiler").Path;
+        Path                = brackets.getModule("filesystem/impls/filer/BracketsFiler").Path,
+        BrambleStartupState = brackets.getModule("bramble/StartupState"),
+        Mustache            = brackets.getModule("thirdparty/mustache/mustache"),
+        PreferencesManager  = brackets.getModule("preferences/PreferencesManager"),
+        escapedPathTemplate = Mustache.compile("{{path}}");
 
     // The script that will be injected into the previewed HTML to handle the other side of the post message connection.
     var PostMessageTransportRemote = require("text!lib/PostMessageTransportRemote.js");
     var Tutorial = require("lib/Tutorial");
     var MouseManager = require("lib/MouseManager");
     var LinkManager = require("lib/LinkManager");
-
-    // An XHR shim will be injected as well to allow XHR to the file system
-    var XHRShim = require("text!lib/xhr/XHRShim.js");
+    var ConsoleManager = require("lib/ConsoleManager");
+    var XHRManager = require("lib/XHRManager");
 
     EventDispatcher.makeEventDispatcher(module.exports);
 
@@ -39,16 +42,20 @@ define(function (require, exports, module) {
         }
     }
 
-    // This function maps all blob urls in a message to filesystem
+    // This function maps all urls in a message to filesystem
     // paths based on the urls that are cached, so that Brackets can work
     // with paths vs. urls
     // For e.g. a message like `{"stylesheets": {"blob://http://url" :
     // ["blob://http://url"]}}` will be mapped into `{"stylesheets":
     // {"/file1" : ["/file1"]}}`
     function resolveLinks(message) {
+        if(!message) {
+            return;
+        }
+
         var regex = new RegExp('\\"(blob:[^"]+)\\"', 'gm');
         var resolvedMessage = message.replace(regex, function(match, url) {
-            var path = BlobUtils.getFilename(url);
+            var path = UrlCache.getFilename(url);
 
             return ["\"", path, "\""].join("");
         });
@@ -86,14 +93,25 @@ define(function (require, exports, module) {
                 return;
             }
 
+            // Deal with XHR requests, if we're hijacking them.
+            if(XHRManager.isXHRRequest(msgObj.message)) {
+                XHRManager.handleXHRRequest(msgObj.data);
+                return;
+            }
+
             if(msgObj.message) {
                 msgObj.message = resolveLinks(msgObj.message);
             }
 
-            //trigger message event
+            if(ConsoleManager.isConsoleRequest(msgObj.message)) {
+                ConsoleManager.handleConsoleRequest(msgObj.data);
+                return;
+            }
+
+            // Not one of our custom events, re-trigger message event to LiveDev
             module.exports.trigger("message", [connId, msgObj.message]);
         } else if (msgObj.type === "connect") {
-            Browser.setListener();
+        
             // Make sure the correct mouse cursor is set, depending on inspector state.
             MouseManager.ensurePreviewCursor();
         }
@@ -105,9 +123,22 @@ define(function (require, exports, module) {
     function start(){
         window.addEventListener("message", _listener);
 
+        var autoUpdate = BrambleStartupState.ui("autoUpdate");
+        if(typeof autoUpdate === "boolean") {
+            setAutoUpdate(autoUpdate);
+        }
+
         // Reload whenever files are removed or renamed
-        BrambleEvents.on("fileRemoved", reload);
-        BrambleEvents.on("fileRenamed", reload);
+        BrambleEvents.on("fileRemoved", handleFileEventWithReload);
+        BrambleEvents.on("fileRenamed", handleFileEventWithReload);
+    }
+
+    /**
+    * Handles file events that should trigger a reload
+    */
+    function handleFileEventWithReload() {
+        // Call without parameters, ignoring any params passed to this function:
+        reload();
     }
 
     /**
@@ -123,6 +154,10 @@ define(function (require, exports, module) {
     *
     */
     function resolvePaths(message) {
+        if(!message) {
+            return;
+        }
+
         var currentDoc = LiveDevMultiBrowser._getCurrentLiveDoc();
         if(!currentDoc) {
             return message;
@@ -132,8 +167,8 @@ define(function (require, exports, module) {
         var linkRegex = new RegExp('(\\\\?\\"?)(href|src|url|value)(\\\\?\\"?\\s?:?\\s?\\(?\\\\?\\"?)([^\\\\"\\),]+)(\\\\?\\"?)', 'gm');
         var resolvedMessage = message.replace(linkRegex, function(match, quote1, attr, seperator, value, quote2) {
             var path = value.charAt(0) === "/" ? value : Path.join(currentDir, value);
-            var url = BlobUtils.getUrl(path);
-            // If BlobUtils could not find the path in the filesystem, it
+            var url = UrlCache.getUrl(path);
+            // If UrlCache could not find the path in the filesystem, it
             // returns the path back unmodified. However, since we are
             // resolving the path above to an absolute path, we should not
             // modify the original value that was captured if a url mapping
@@ -155,21 +190,39 @@ define(function (require, exports, module) {
         var win = _iframeRef.contentWindow;
         msgStr = resolvePaths(msgStr);
         var msg = JSON.parse(msgStr);
-        var detachedPreview = Browser.getDetachedPreview();
 
         // Because we need to deal with reloads on this side (i.e., editor) of the
         // transport, check message before sending to remote, and reload if necessary
         // without actually sending to remote for processing.
-        if(msg.method === "Page.reload" || msg.method === "Page.navigate") {
+        if(msg.method === "Page.reload") {
             reload();
+            return;
+        } else if(msg.method === "Page.navigate") {
+            reload(false, function (err) {
+                if (!err) {
+                    var url = msg.params.url;
+                    var fragmentIndex = url.indexOf("#");
+                    if (fragmentIndex !== -1) {
+                        // NOTE: we can't place the fragment on the original navigation URL because
+                        // browsers are inconsistent in how they handle fragments at the end of
+                        // blob URLs
+
+                        // So, if the page we are navigating to has a fragment at the end of the URL,
+                        // the reload() was not sufficient, we also need to send a navigate to the
+                        // fragment here now that the new page has loaded.
+
+                        // Construct a new JSON message string after modifying the URL param to contain
+                        // the fragment by itself
+                        msg.params.url = url.substr(fragmentIndex);
+                        var newMsgStr = JSON.stringify(msg);
+                        win.postMessage(newMsgStr, "*");
+                    }
+                }
+            });
             return;
         }
 
         win.postMessage(msgStr, "*");
-
-        if(detachedPreview && Tutorial.shouldPostMessage()) {
-            detachedPreview.postMessage(msgStr, "*");
-        }
     }
 
     /**
@@ -182,33 +235,31 @@ define(function (require, exports, module) {
     /**
      * Returns the script that should be injected into the browser to handle the other end of the transport.
      * Includes a base tag to handle external protocol-less, linked files.
+     * @param {string} path (Optional) a path being served, or the current LiveDoc's path if missing.
      * @return {string}
      */
-    function getRemoteScript() {
+    function getRemoteScript(path) {
         var currentDoc = LiveDevMultiBrowser._getCurrentLiveDoc();
-        var currentPath;
-        if(currentDoc) {
-            currentPath = currentDoc.doc.file.fullPath;
-        }
+        var currentPath = path || (currentDoc && currentDoc.doc.file.fullPath);
+        var escapedPath = escapedPathTemplate({path: currentPath});
 
-        return '<base href="' + window.location.href + '">\n' +
+        return '<base href="' + UrlCache.getBaseUrl() + '">\n' +
             "<script>\n" + PostMessageTransportRemote + "</script>\n" +
-            "<script>\n" + XHRShim + "</script>\n" +
-            MouseManager.getRemoteScript(currentPath) +
-            LinkManager.getRemoteScript();
+            XHRManager.getRemoteScript() +
+            MouseManager.getRemoteScript(escapedPath) +
+            LinkManager.getRemoteScript() +
+            ConsoleManager.getRemoteScript();
     }
 
     // URL of document being rewritten/launched (if any)
     var _pendingReloadUrl;
 
-    // Whether or not to allow reloads in the general case (true by default)
-    var _autoUpdate = true;
-
+    // Whether or not to allow reloads in the general case
     function setAutoUpdate(value) {
-        _autoUpdate = value;
+        PreferencesManager.set("livePreviewAutoReload",value);
 
         // Force a reload if we switch back to auto-updates
-        if(_autoUpdate) {
+        if(value) {
             reload(true);
         }
     }
@@ -217,31 +268,43 @@ define(function (require, exports, module) {
      * Reload the LiveDev preview if not auto-updates aren't disabled.
      * If force=true, we ignore the current state of auto-updates and do it.
      */
-    function reload(force) {
+    function reload(force, callback) {
         var launcher = Launcher.getCurrentInstance();
         var liveDoc = LiveDevMultiBrowser._getCurrentLiveDoc();
         var url;
 
         // If auto-updates are disabled, and force wasn't passed, bail.
-        if(!_autoUpdate && !force) {
+        if(!PreferencesManager.get("livePreviewAutoReload") && !force) {
+            if (callback) {
+                callback(new Error("Auto updates disabled"));
+            }
             return;
         }
 
         // Don't go any further if we don't have a live doc yet (nothing to reload)
         if(!liveDoc) {
+            if (callback) {
+                callback(new Error("No live doc, nothing to reload"));
+            }
             return;
         }
 
-        url = BlobUtils.getUrl(liveDoc.doc.file.fullPath);
+        url = UrlCache.getUrl(liveDoc.doc.file.fullPath);
 
         // Don't start rewriting a URL if it's already in process (prevents infinite loop)
         if(_pendingReloadUrl === url) {
+            if (callback) {
+                callback(new Error("Already pending reload"));
+            }
             return;
         }
 
         _pendingReloadUrl = url;
         launcher.launch(url, function() {
             _pendingReloadUrl = null;
+            if (callback) {
+                callback(null);
+            }
         });
     }
 

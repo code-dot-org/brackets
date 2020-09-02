@@ -1,7 +1,7 @@
 # Bramble is based on Brackets
 
 Brackets is a modern open-source code editor for HTML, CSS
-and JavaScript that's *built* in HTML, CSS and JavaScript.
+and JavaScript that is  *built* in HTML, CSS and JavaScript.
 
 Brackets is at 1.0 and we're not stopping there. We have many feature ideas on our
 [trello board](http://bit.ly/BracketsTrelloBoard) that we're anxious to add and other
@@ -20,10 +20,10 @@ for info on how we're using CodeMirror.
 
 # How to setup Bramble (Brackets) in your local machine
 
-Step 1: Make sure you fork and clone [Bramble](https://github.com/mozilla/brackets).
+Step 1: Make sure you clone our fork of [Bramble](https://github.com/mozilla/brackets) recursively.
 
 ```
-$ git clone https://github.com/[yourusername]/brackets --recursive
+$ git clone https://github.com/code-dot-org/bramble.git --recursive
 ```
 
 Step 2: Install its dependencies
@@ -34,15 +34,12 @@ Navigate to the root of the directory you cloned and run:
 $ npm install
 ```
 
-Step 3: run the build
+NOTE: if you are running on Windows, and experience a build error with the `iltorb` package,
+consider adding the `--no-optional` flag to have npm skip installing `iltorb`, which is optional
+and requires python, gyp and a working c++ build environment.
+See comment in https://github.com/mozilla/brackets/pull/588#issuecomment-280438175
 
-You can build Bramble by running the npm build task:
-
-```
-$ npm run build
-```
-
-Step 4: Run Bramble:
+Step 3: Run Bramble:
 
 The easiest way to run Bramble is to simply use:
 
@@ -50,7 +47,13 @@ The easiest way to run Bramble is to simply use:
 $ npm start
 ```
 
-This starts an `http-server` session on port 8000 for you to work with.
+This will generate the strings needed for localization in your `src/nls` folder and allow you to access Bramble on `localhost:8000` (NOTE: you need npm version 5 for the cleanup step to run properly; if it doesn't, use `npm run unlocalize` to restore the files in `src/nls/**/*`). It will also build the Bramble iframe API in `dist/` if necessary. You can terminate the server with `Ctrl+C` which will also clean up the strings that were generated in your `src/nls` folder. If any changes are made in the `src` directory, just refresh the page hosting Bramble in your browser to reflect those changes.
+
+If you want to simply run the server without the localized strings, run:
+
+```
+$ npm run server
+```
 
 However, if you wish to run your own static server, there are several options available:
 * [Apache Webserver](http://www.apache.org/)
@@ -67,53 +70,12 @@ should host Bramble's iframe, see `src/hosted.js`.
 
 **NOTE 3:** To use Bramble in a production setting locally, you can run `npm run production` and access Bramble at [http://localhost:8000/dist](http://localhost:8000/dist)
 
-# Optional Extension Loading
+# Extension Loading
 
-Bramble supports enabling and disabling various extensions via the URL and query params.
-A standard set of default extensions are always turned on:
-
-* CSSCodeHints
-* HTMLCodeHints
-* JavaScriptCodeHints
-* InlineColorEditor
-* JavaScriptQuickEdit
-* QuickOpenCSS
-* QuickOpenHTML
-* QuickOpenJavaScript
-* QuickView
-* UrlCodeHints
-* brackets-paste-and-indent
-* BrambleUrlCodeHints
-* Autosave
-* UploadFiles
-* WebPlatformDocs
-* CodeFolding
-* bramble-move-file
-
-You could disable QuickView and CSSCodeHints by loading Bramble with `?disableExtensions=QuickView,CSSCodeHints`
-on the URL.
-
-In addition, you can enable other extra extensions:
-
-* SVGCodeHints
-* HtmlEntityCodeHints
-* LESSSupport
-* CloseOthers
-* InlineTimingFunctionEditor
-* JSLint
-* QuickOpenCSS
-* RecentProjects
-* brackets-cdn-suggestions
-* HTMLHinter
-* MdnDocs
-* SVGasXML
-
-You could enable JSLint and LESSSupport by loading Bramble with `?enableExtensions=JSLint,LESSSupport`
-on the URL
-
-NOTE: you can combine `disableExtensions` and `enableExtensions` to mix loading/disabling extensions.
-You should check src/utils/BrambleExtensionLoader.js for the most up-to-date version of these
-extension lists.
+Bramble loads a set of extensions defined in `src/extensions/bramble-extensions.json`. You can
+alter which extensions Bramble loads by adding or removing items from this list.  You can also
+temporarily disable extensions by using `?disableExtensions`. For example: to disable QuickView
+and CSSCodeHints, load Bramble with `?disableExtensions=QuickView,CSSCodeHints` on the URL.
 
 --------------
 
@@ -123,7 +85,7 @@ After you have everything setup, you can now run the server you chose in the roo
 
 # Bramble IFrame API
 
-Bramble is desinged to be run in an iframe, and the hosting web app to communicate with it
+Bramble is designed to be run in an iframe, and the hosting web app to communicate with it
 via `postMessage` and `MessageChannel`.  In order to simplify this, a convenience API exists
 for creating and managing the iframe, as well as providing JavaScript functions for interacting
 with the editor, preview, etc.
@@ -131,7 +93,7 @@ with the editor, preview, etc.
 ## Loading the API
 
 The hosting app must include the Bramble IFrame API (i.e., `dist/bramble.js`).  Note: in
-development you can use `src/hosted.html`, which does this).  This script can either be used as
+development you can use `src/hosted.html`, which does this.  This script can either be used as
 an AMD module, or as a browser global:
 
 ```html
@@ -180,6 +142,15 @@ NOTE: in some browsers (e.g., Firefox) when the user is in "Private Browsing"
 mode, the filesystem (i.e., IndexedDB) will be inaccessible, and an error
 will be sent via the `error` event (i.e., `err.code === "EFILESYSTEMERROR"`).  This
 is the same error that occurs when the filesystem is corrupt (see `autoRecoverFileSystem` below).
+
+## Bramble Offline Support
+
+The Bramble code is offline capable, and will indicate, via events, when it is ready to be used offline, as well as
+when there are updates available for existing offline cached resources. These events are triggered on `Bramble` vs.
+the `bramble` instance.  The offline related events include:
+
+* `"offlineReady"` - triggered when Bramble has been fully cached for offline use.  Users can safely work without network.
+* `"updatesAvailable"` - triggered when new or updated Bramble resources have been cached and are available for use. You might use this to indicate to the user that they should refresh the page to begin using the updates.
 
 ## Bramble.getFileSystem()
 
@@ -244,6 +215,8 @@ The `options` object allows you to configure Bramble:
  * `disableUIState`: `<Boolean>` by default, UI state is kept between sessions.  This disables it (and clears old values), and uses the defaults from Bramble.
  * `autoRecoverFileSystem`: `<Boolean>` whether to try and autorecover the filesystem on failure (see `Bramble.formatFileSystem` above).
  * `debug`: `<Boolean>` whether to log debug info.
+ * `zipFilenamePrefix`: `<String>` the prefix name to use for project zip files, or `"thimble-project"` by default.
+ * `capacity`: `<Number>` the number of bytes of disk space to allow for this project.  Defaults to 5MB if not set.
 
 ## Bramble.mount(root[, filename])
 
@@ -305,8 +278,15 @@ a number of read-only getters are available in order to access state information
 * `getTheme()` - returns the name of the current theme.
 * `getFontSize()` - returns the current font size as a string (e.g., `"12px"`).
 * `getWordWrap()` - returns the current word wrap setting as a `Boolean` (i.e., enabled or disabled).
+* `getAllowJavaScript()` - returns the current allow javascript setting as a `Boolean` (i.e., enabled or disabled).
+* `getAutocomplete()` - returns the current autocomplete settings as a `Boolean` (i.e., enabled or disabled).
+* `getAutoCloseTags()` - returns the current close tags setting as an `Object` with three properties: `whenOpening` a boolean that determines whether opening tags are closed upon typing ">", `whenClosing` a boolean that determines whether closing tags are closed upon typing "/", and an array of tags `indentTags`, that when opened, has a blank line. These values default to, respectively: `true`, `true`, and an empty array.
 * `getTutorialExists()` - returns `true` or `false` depending on whether or not there is a tutorial in the project (i.e., if `tutorial.html` is present)
 * `getTutorialVisible()` - returns `true` or `false` depending on whether or not the preview browser is showing a tutorial or not.
+* `getAutoUpdate()` - returns `true` or `false` depending on whether or not the auto update preference is enabled or not.
+* `getTotalProjectSize()` - returns the current project size in bytes.
+* `hasIndexFile()` - returns `true` or `false` depending on whether or not there is an `"index.html"` file.
+* `getFileCount()` - returns total file count.
 
 **NOTE**: calling these getters before the `ready()` callback on the bramble instance
 won't do what you want.
@@ -320,7 +300,7 @@ to be notified when the action completes:
 * `undo([callback])` - undo the last operation in the editor (waits for focus)
 * `redo([callback])` - redo the last operation that was undone in the editor (waits for focus)
 * `increaseFontSize([callback])` - increases the editor's font size
-* `decreaseFontSize([callback])` - decreases the edtior's font size
+* `decreaseFontSize([callback])` - decreases the editor's font size
 * `restoreFontSize([callback])` - restores the editor's font size to normal
 * `save([callback])` - saves the current document
 * `saveAll([callback])` - saves all "dirty" documents
@@ -329,18 +309,20 @@ to be notified when the action completes:
 * `find([callback])` - opens the Find dialog to search within the current document
 * `findInFiles([callback])` - opens the Find in Files dialog to search in all project files
 * `replace([callback])` - opens the Replace dialog to replace text in the current document
-* `replaceInFiles([callback])` - opens the Replace In Files dialog to replace text in all project files
+* `replaceInFiles([callback])` - opens the Replace in Files dialog to replace text in all project files
 * `useLightTheme([callback])` - sets the editor to use the light theme (default)
 * `useDarkTheme([callback])` - sets the editor to use the dark theme
 * `showSidebar([callback])` - opens the file tree sidebar
 * `hideSidebar([callback])` - hides the file tree sidebar
 * `showStatusbar([callback])` - enables and shows the statusbar
 * `hideStatusbar([callback])` - disables and hides the statusbar
+* `showPreview([callback])` - opens the preview pane
+* `hidePreview([callback])` - hides the preview pane
 * `refreshPreview([callback])` - reloads the preview with the latest content in the editor and filesystem
 * `useMobilePreview([callback])` - uses a Mobile view in the preview, as it would look on a smartphone
 * `useDesktopPreview([callback])` - uses a Desktop view in the preview, as it would look on a desktop computer (default)
 * `enableFullscreenPreview([callback])` - shows a fullscreen preview of the current file
-* `disableFullscreenPreview([callback])` - turns off the fullscreen preview of the curent file
+* `disableFullscreenPreview([callback])` - turns off the fullscreen preview of the current file
 * `enableAutoUpdate([callback])` - turns on auto-update for the preview (default)
 * `disableAutoUpdate([callback])` - turns off auto-update for the preview (manual reloads still work)
 * `enableJavaScript([callback])` - turns on JavaScript execution for the preview (default)
@@ -349,29 +331,44 @@ to be notified when the action completes:
 * `disableInspector([callback])` - turns off the preview inspector (default)
 * `enableWordWrap([callback])` - turns on word wrap for the editor (default)
 * `disableWordWrap([callback])` - turns off word wrap for the editor
+* `configureAutoCloseTags(options, [callback])` - enables/disables close tags for the editor using the provided options which consists of an `Object` that includes three properties: `whenOpening` a boolean, `whenClosing` a boolean, and an array `indentTags`.
 * `showTutorial([callback])` - shows tutorial (i.e., tutorial.html) vs editor contents in preview
 * `hideTutorial([callback])` - stops showing tutorial (i.e., tutorial.html) and uses editor contents in preview
 * `showUploadFilesDialog([callback])` - shows the Upload Files dialog, allowing users to drag-and-drop, upload a file, or take a selfie.
 * `addNewFile([options, callback])` - adds a new text file, using the provided options, which can include: `filename` a `String` with the complete filename to use; `contents` a `String` with the new text file's data; `ext` a `String` with the new file's extension; `basenamePrefix` a `String` with the basename to use when generating a new filename.  NOTE: if you provide `filename`, `basenamePrefix` and `ext` are ignored.
+* `fileRefresh([callback])` - refreshes files in the project tree (custom for CDO-Bramble).
 * `addNewFolder([callback])` - adds a new folder.
 * `export([callback])` - creates an archive `.zip` file of the entire project's filesystem, and downloads it to the browser.
+* `addCodeSnippet(snippet, [callback])` - adds a new code `snippet` to the editor (if it is in focus) at the current cursor position. One required parameter (`snippet`) needs to be passed in which needs to be a `String`.
+* `openSVGasXML([callback])` - treats `.svg` files as XML and shows them in the text editor.
+* `openSVGasImage([callback])` - treats `.svg` files as Images and shows them in image viewer.
 
 ## Bramble Instance Events
 
 The Bramble instance is also an [`EventEmitter`](https://github.com/Wolfy87/EventEmitter/) and raises
 the following events:
 
-* `"layout"` - triggered whenever the sidebar, editor, or preview panes are changed. It includes an `Object` that returns the same infor as the `getLayout()` getter: : `sidebarWidth`, `firstPaneWidth`, `secondPathWidth`
+* `"layout"` - triggered whenever the sidebar, editor, or preview panes are changed. It includes an `Object` that returns the same information as the `getLayout()` getter: `sidebarWidth`, `firstPaneWidth`, `secondPathWidth`
 * `"activeEditorChange"` - triggered whenever the editor changes from one file to another. It includes an `Object` with the current file's `fullPath` and `filename`.
 * `"previewModeChange"` - triggered whenever the preview mode is changed. It includes an `Object` with the new `mode`
 * `"sidebarChange"` - triggered whenever the sidebar is hidden or shown. It includes an `Object` with a `visible` property set to `true` or `false`
-* `"themeChange"` - triggered whenever the theme changes. It inclues an `Object` with a `theme` property that indicates the new theme
+* `"themeChange"` - triggered whenever the theme changes. It includes an `Object` with a `theme` property that indicates the new theme
 * `"fontSizeChange"` - triggered whenever the font size changes. It includes an `Object` with a `fontSize` property that indicates the new size (e.g., `"12px"`).
 * `"wordWrapChange"` - triggered whenever the word wrap value changes. It includes an `Object` with a `wordWrap` property that indicates the new value (e.g., `true` or `false`).
+* `"allowJavaScriptChange"` - triggered whenever the allow javascript value changes. It includes an `Object` with a `allowJavaScript` property that indicates the new value (e.g., `true` or `false`).
+* `"autoCloseTagsChange"` - triggered whenever the close tag value changes. It includes an `Object` with a `autoCloseTags` property that indicates the new value
 * `"tutorialAdded"` - triggered when a new tutorial is added to the project
 * `"tutorialRemoved"` - triggered when an existing tutorial for the project is removed
 * `"tutorialVisibilityChange"` - triggered when the tutorial preview is turned on or off. It includes an `Object` with a `visibility` property that indicates whether the tutorial is visible.
 * `"inspectorChange"` - triggered whenever the inspector changes from enabled to disabled, or vice versa. It includes an `Object` with an `enabled` property set to `true` or `false`.
+* `"autoUpdateChange"` - triggered whenever the auto update preference changes from enabled to disabled, or vice versa. It includes an `Object` with a `autoUpdate` property set to `true` or `false`
+* `"projectDirty"` - triggered when one of the files in the project has been edited and those changes haven't been saved yet. It includes an `Object` with the `path` to the current file.
+* `"projectSaved"` - triggered whenever the changes are saved to the filesystem in the browser are completed.
+* `"dialogOpened"` - triggered whenever a modal dialog opens, like when a user is deleting a file.
+* `"dialogClosed"` - triggered whenever a modal dialog closes.
+* `"capacityExceeded"` - triggered whenever the project's files reach or exceed the maximum allowed disk capacity. Some operations will be disallowed until sufficient space has been recovered (e.g., user deletes files). A second argument, `size`, indicates the number of bytes the project is over capacity.
+* `"capacityRestored"` - triggered after a `"capacityExceeded"` event when sufficient space has been recovered to continue normal disk activity.
+* `"projectSizeChange"` - triggered when the project's size on disk changes. The event includes two arguments: `size`, which is the new size of the project in bytes, and `percentUsed` which is a percentage of disk space used out of the total available capacity.
 
 There are also high-level events for changes to files:
 
@@ -389,3 +386,19 @@ There are also high-level events for changes to files:
 ```
 
 NOTE: if you want to receive generic events for file system events, especially events across windows using the same file system, use [fs.watch()](https://github.com/filerjs/filer#watch) instead.
+
+# Troubleshooting
+
+If you forgot to add the `--recursive` flag while cloning this repository, you might run into a similar error:
+
+```bash
+Tracing dependencies for: main
+Error: ENOENT: no such file or directory, open '[..]/brackets/src/thirdparty/text/text.js'
+In module tree:
+    brackets
+      language/LanguageManager
+        file/FileUtils
+          utils/Global
+```
+
+To fix it, run `git submodule update --init --recursive` in the main directory.

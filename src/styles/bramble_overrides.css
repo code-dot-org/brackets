@@ -67,6 +67,11 @@ li.jstree-leaf > a {
 
 .fullscreen-preview #first-pane {
     width: 0 !important;
+    display: none;
+}
+
+.fullscreen-preview #sidebar {
+    display: none;
 }
 
 .fullscreen-preview .main-view .content {

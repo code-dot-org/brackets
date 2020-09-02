@@ -4,15 +4,27 @@
 define(function (require, exports, module) {
     "use strict";
 
+    /**
+     * NOTE: For reading and writing UTF8 and Binary files, it is best/easiest
+     * to use the filesystem/impls/filer/FilerUtils module, since it does
+     * things at the right level of abstraction:
+     *  - readFileAsUTF8()
+     *  - readFileAsBinary()
+     *  - writeFileAsUTF8()
+     *  - writeFileASBinary()
+     */
+
     var FileSystemError = require("filesystem/FileSystemError"),
         FileSystemStats = require("filesystem/FileSystemStats"),
         BracketsFiler   = require("filesystem/impls/filer/BracketsFiler"),
-        BlobUtils       = require("filesystem/impls/filer/BlobUtils"),
+        UrlCache       = require("filesystem/impls/filer/UrlCache"),
         decodePath      = require("filesystem/impls/filer/FilerUtils").decodePath,
         Handlers        = require("filesystem/impls/filer/lib/handlers"),
         Content         = require("filesystem/impls/filer/lib/content"),
         Async           = require("utils/Async"),
-        BrambleEvents   = require("bramble/BrambleEvents");
+        BrambleEvents   = require("bramble/BrambleEvents"),
+        FileSystemCache = require("filesystem/impls/filer/FileSystemCache"),
+        ImageResizer    = require("filesystem/impls/filer/lib/ImageResizer");
 
     var fs              = BracketsFiler.fs(),
         Path            = BracketsFiler.Path,
@@ -178,27 +190,33 @@ define(function (require, exports, module) {
         oldPath = decodePath(oldPath);
         newPath = decodePath(newPath);
 
-        function updateBlobURL(err) {
+        function updateURL(err) {
             if(err) {
                 return callback(_mapError(err));
             }
 
-            // If this was a rename on a file path, update the Blob cache too
-            stat(newPath, function(err, stat) {
+            UrlCache.rename(oldPath, newPath, function(err) {
                 if(err) {
                     return callback(_mapError(err));
                 }
 
-                if(stat.isFile) {
-                    BlobUtils.rename(oldPath, newPath);
-                    BrambleEvents.triggerFileRenamed(oldPath, newPath);
-                }
+                // NOTE: we deal with rename events per file higher-up in the Bramble API.
+                // and only send a single event for a file rename here vs. a folder + children.
+                stat(newPath, function(err, stat) {
+                    if(err) {
+                        return callback(_mapError(err));
+                    }
 
-                callback();
+                    if(stat.isFile) {
+                        BrambleEvents.triggerFileRenamed(oldPath, newPath);
+                    }
+
+                    callback();
+                });
             });
         }
 
-        fs.rename(oldPath, newPath, _wrap(updateBlobURL));
+        fs.rename(oldPath, newPath, _wrap(updateURL));
     }
 
     function readFile(path, options, callback) {
@@ -255,7 +273,7 @@ define(function (require, exports, module) {
         options = options || {};
         options.encoding = options.encoding === null ? null : "utf8";
 
-        // We rewrite and create a BLOB URL in Bramble, then run the
+        // We rewrite and create a URL in Bramble, then run the
         // remote FS operation, such that resources are ready when needed later.
         function _finishWrite(created) {
             var result = {};
@@ -277,10 +295,23 @@ define(function (require, exports, module) {
             Async.doSequentially([
                 // We need to rewrite and cache first, before we transfer ownership of the data
                 function step1RewriteAndCache(callback) {
-                    // Add a BLOB cache record for this filename
-                    // only if it's not an HTML file
-                    if(Content.isHTML(Path.extname(path))) {
-                        callback();
+                    var ext = Path.extname(path);
+
+                    // Add a cache record for this filename only if it's not an HTML file
+                    if(Content.isHTML(ext)) {
+                        return callback();
+                    }
+
+                    // If this is a big image (>250K), resize it first
+                    if(Content.isResizableImage(ext) && !Content.isAnimatedImage(data) && Content.isImageTooLarge(data.length)) {
+                        ImageResizer.resize(path, data, function(err, resized) {
+                            if(err) {
+                                return callback(err);
+                            }
+
+                            data = resized;
+                            Handlers.handleFile(path, data, callback);
+                        });
                     } else {
                         Handlers.handleFile(path, data, callback);
                     }
@@ -307,6 +338,9 @@ define(function (require, exports, module) {
                 }
 
                 callback(null, result.stat, result.created);
+            }, function(err) {
+                callback(FileSystemError.UNKNOWN);
+                return;
             });
         }
 
@@ -357,11 +391,18 @@ define(function (require, exports, module) {
 
             // TODO: deal with the symlink case (i.e., only remove cache
             // item if file is really going away).
-            BlobUtils.remove(path).forEach(function(filename) {
-                BrambleEvents.triggerFileRemoved(filename);
-            });
+            UrlCache.remove(path, function(err, removed) {
+                if(err) {
+                    callback(_mapError(err));
+                    return;
+                }
 
-            callback();
+                removed.forEach(function(filename) {
+                    BrambleEvents.triggerFileRemoved(filename);
+                });
+
+                callback();
+            });
         });
     }
 
@@ -380,9 +421,14 @@ define(function (require, exports, module) {
         _changeCallback = changeCallback;
     }
 
-    function watchPath(path, callback) {
+    function watchPath(path, filterGlobs, callback) {
         path = decodePath(path);
         path = Path.normalize(path);
+
+        // Brackets now allows passing globs for filtering watch paths.  We ignore.
+        if(typeof filterGlobs === 'function') {
+            callback = filterGlobs;
+        }
 
         if(watchers[path]) {
             return;

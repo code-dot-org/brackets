@@ -21,8 +21,8 @@
  *
  */
 
-/*jslint vars: true, plusplus: true, devel: true, regexp: true, nomen: true, indent: 4, maxerr: 50 */
-/*global $, define, less */
+/*jslint regexp: true */
+/*global less */
 
 define(function (require, exports, module) {
     "use strict";
@@ -36,6 +36,7 @@ define(function (require, exports, module) {
         ThemeSettings      = require("view/ThemeSettings"),
         ThemeView          = require("view/ThemeView"),
         PreferencesManager = require("preferences/PreferencesManager"),
+        Path               = require("filesystem/impls/filer/FilerUtils").Path,
         prefs              = PreferencesManager.getExtensionPrefs("themes");
 
     var loadedThemes    = {},
@@ -94,6 +95,11 @@ define(function (require, exports, module) {
             // We do a bit of string treatment here to make sure we generate theme names that can be
             // used as a CSS class name by CodeMirror.
             options.name = options.name.toLocaleLowerCase().replace(/[\W]/g, '-');
+        }
+
+        // XXXBramble: in dist/ builds we automatically build .css from .less
+        if(brackets.env === "production") {
+            file._path = file._path.replace(/\.less$/, ".css");
         }
 
         this.file           = file;
@@ -162,16 +168,16 @@ define(function (require, exports, module) {
      */
     function lessifyTheme(content, theme) {
         var deferred = new $.Deferred();
-        var parser   = new less.Parser({
+
+        // XXXBramble: we pre-wrap our themes in #editor-holder {...} vs. here.
+        less.render(content, {
             rootpath: fixPath(stylesPath),
             filename: fixPath(theme.file._path)
-        });
-
-        parser.parse("#editor-holder {" + content + "\n}", function (err, tree) {
+        }, function (err, tree) {
             if (err) {
                 deferred.reject(err);
             } else {
-                deferred.resolve(tree.toCSS());
+                deferred.resolve(tree.css);
             }
         });
 
@@ -229,20 +235,28 @@ define(function (require, exports, module) {
         var theme = getCurrentTheme();
         var pending = new $.Deferred();
 
-        if (theme) {
-            require(['text!' + theme.file._path], function(lessContent) {
-                lessifyTheme(lessContent.replace(commentRegex, ""), theme)
-                .then(function (content) {
-                    var result = extractScrollbars(content);
-                    theme.scrollbar = result.scrollbar;
-                    return result.content;
-                })
-                .then(function (cssContent) {
-                    $("body").toggleClass("dark", theme.dark);
-                    styleNode.text(cssContent);
+        function processCSS(css) {
+            var result = extractScrollbars(css);
+            var content = result.content;
+            theme.scrollbar = result.scrollbar;
 
-                    pending.resolve(theme);
-                });
+            $("body").toggleClass("dark", theme.dark);
+            styleNode.text(content);
+            $("body").attr('data-theme',theme.name);
+            pending.resolve(theme);
+        }
+
+        if (theme) {
+            require(['text!' + theme.file._path], function(content) {
+                content = content.replace(commentRegex, "");
+
+                // If we already have CSS, don't bother with LESS.
+                if(Path.extname(theme.file._path) === ".css") {
+                    processCSS(content);
+                } else {
+                    lessifyTheme(content, theme)
+                    .then(processCSS);
+                }
             });
         }
 
@@ -406,9 +420,9 @@ define(function (require, exports, module) {
         refresh();
     });
 
-    
+
     EventDispatcher.makeEventDispatcher(exports);
-    
+
     exports.refresh         = refresh;
     exports.loadFile        = loadFile;
     exports.loadPackage     = loadPackage;

@@ -4,6 +4,8 @@
 define(function (require, exports, module) {
     "use strict";
 
+    var _uploadDialog = null;
+
     var StartupState   = brackets.getModule("bramble/StartupState");
     var Path           = brackets.getModule("filesystem/impls/filer/BracketsFiler").Path;
     var CommandManager = brackets.getModule("command/CommandManager");
@@ -12,6 +14,7 @@ define(function (require, exports, module) {
     var DragAndDrop    = brackets.getModule("utils/DragAndDrop");
     var KeyEvent       = brackets.getModule("utils/KeyEvent");
     var Strings        = brackets.getModule("strings");
+    var Mustache       = brackets.getModule("thirdparty/mustache/mustache");
 
     var dialogHTML     = require("text!htmlContent/upload-files-dialog.html");
 
@@ -24,8 +27,10 @@ define(function (require, exports, module) {
     }(window.navigator));
 
     function FileInput() {
-        $(document.body)
-            .append($('<input class="upload-files-input-elem" type="file" multiple />'));
+        if (!$(".upload-files-input-elem")[0]){
+            $(document.body)
+                .append($('<input class="upload-files-input-elem" type="file" multiple />'));
+        }
     }
     FileInput.prototype.getFiles = function() {
         return this.getElem$()[0].files;
@@ -92,13 +97,9 @@ define(function (require, exports, module) {
                 // Turn off the other buttons
                 $fromComputerButton.off("click", self._handleFromComputer.bind(self));
                 $takeSelfieButton.off("click", self._handleTakeSelfie.bind(self));
-
-                // Switch to the upload spinner
-                $dragFilesAreaDiv.hide();
-                $uploadFilesDiv.show();
+                self.hide();
             },
             onfilesdone: function() {
-                self.hide();
                 self.destroy();
             },
             autoRemoveHandlers: true
@@ -138,6 +139,7 @@ define(function (require, exports, module) {
         var deferred = self.deferred;
 
         self.hide();
+        _uploadDialog = null;
 
         function _processFiles(e) {
             var files = self.fileInput.getFiles();
@@ -163,13 +165,17 @@ define(function (require, exports, module) {
         Dialogs.cancelModalDialogIfOpen("upload-files-dialog");
     };
     FileUploadDialog.prototype.destroy = function() {
+        _uploadDialog = null;
         this.fileInput.remove();
     };
 
-
     function show() {
-        var uploadDialog = new FileUploadDialog();
-        return uploadDialog.show();
+        if(_uploadDialog) {
+           return _uploadDialog.deferred.promise();
+        }
+
+        _uploadDialog = new FileUploadDialog();
+        return _uploadDialog.show();
     }
 
     exports.show = show;

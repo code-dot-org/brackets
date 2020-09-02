@@ -16,7 +16,8 @@ define(function (require, exports, module) {
 
     function getNavigationPath(message) {
         var match = message.match(/^bramble-navigate\:(.+)/);
-        return match && match[1];
+        var navPath = match && match[1];
+        return navPath;
     }
 
     // Whether or not this message is a navigation request from the LinkManagerRemote script.
@@ -31,6 +32,8 @@ define(function (require, exports, module) {
             return;
         }
 
+        path = decodeURI(path);
+
         var currentDoc = LiveDevMultiBrowser._getCurrentLiveDoc();
         if(!currentDoc) {
             return;
@@ -39,12 +42,20 @@ define(function (require, exports, module) {
         var currentDir = Path.dirname(currentDoc.doc.file.fullPath);
         path = Path.resolve(currentDir, path);
 
+        var fragmentIndex = path.indexOf("#");
+        var fragment;
+        if (fragmentIndex !== -1) {
+            fragment = path.substr(fragmentIndex);
+            path = path.substr(0, fragmentIndex);
+        }
+
         // Open it in the editor, which will also attempt to update the preview to match
         FileSystem.resolve(path, function(err, file) {
             if(err) {
                 console.log("[Bramble Error] unable to open path in editor", path, err);
                 return;
             }
+            file.fragment = fragment;
             CommandManager.execute(Commands.CMD_ADD_TO_WORKINGSET_AND_OPEN, { fullPath: file.fullPath });
         });
     }

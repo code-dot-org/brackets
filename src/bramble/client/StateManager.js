@@ -51,12 +51,46 @@ define(function() {
         return str|0;
     }
 
-    function StateManager(disableStorage) {
+    function getObject(storage, property) {
+        var objStr = getString(storage, property);
+        var obj = {};
+
+        try {
+            obj = JSON.parse(objStr);
+        } catch(e) {
+            console.error("Failed to parse object from localStorage item " + prefix(property) + " with: ", e);
+        }
+
+        return obj;
+    }
+
+    function setObject(storage, property, obj) {
+        if(!obj) {
+          return;
+        }
+
+        var objStr;
+        property = prefix(property);
+
+        try {
+            objStr = JSON.stringify(obj);
+            storage.setItem(property, objStr);
+        } catch(e) {
+            console.error("Failed to stringify object to write to localStorage for item " + property + " with: ", e);
+        }
+    }
+
+    function StateManager(disableStorage, initialUIState) {
         var storage;
         if(disableStorage) {
             // Wipe any data we have in storage now and use memory
             localStorage.clear();
             storage = memoryStorage;
+            for (var key in initialUIState) {
+                if (initialUIState.hasOwnProperty(key)) {
+                    storage.setItem(prefix(key), initialUIState[key]);
+                }
+            }
         } else {
             storage = localStorage;
         }
@@ -98,9 +132,37 @@ define(function() {
                 get: function()  { return getString(storage, "fullPath"); },
                 set: function(v) { storage.setItem(prefix("fullPath"), v); }
             },
+            readOnly: {
+                get: function()  { return getString(storage, "readOnly"); },
+                set: function(v) { storage.setItem(prefix("readOnly"), v); }
+            },
             wordWrap: {
                 get: function()  { return getBool(storage, "wordWrap"); },
                 set: function(v) { storage.setItem(prefix("wordWrap"), v); }
+            },
+            autoCloseTags: {
+                get: function()  { return getObject(storage, "closeTags"); },
+                set: function(v) { setObject(storage, "closeTags", v); }
+            },
+            allowJavaScript: {
+                get: function()  { return getBool(storage, "allowJavaScript"); },
+                set: function(v) { storage.setItem(prefix("allowJavaScript"), v); }
+            },
+            allowWhiteSpace: {
+                get: function()  { return getBool(storage, "allowWhiteSpace"); },
+                set: function(v) { storage.setItem(prefix("allowWhiteSpace"), v); }
+            },
+            allowAutocomplete: {
+                get: function()  { return getBool(storage, "allowAutocomplete"); },
+                set: function(v) { storage.setItem(prefix("allowAutocomplete"), v); }
+            },
+            autoUpdate: {
+                get: function()  { return getBool(storage, "autoUpdate"); },
+                set: function(v) { storage.setItem(prefix("autoUpdate"), v); }
+            },
+            openSVGasXML: {
+                get: function()  { return getBool(storage, "openSVGasXML"); },
+                set: function(v) { storage.setItem(prefix("openSVGasXML"), v); }
             }
         });
     }
