@@ -23,7 +23,7 @@
         "healthDataServerURL": "https://health.brackets.io/healthDataLog"
     },
     "name": "@code-dot-org/bramble",
-    "version": "0.1.26",
+    "version": "0.1.28",
     "homepage": "https://github.com/code-dot-org/bramble",
     "repository": {
         "type": "git",
@@ -35,8 +35,8 @@
         "dist"
     ],
     "engines": {
-        "node": "^6.11.1",
-        "npm": "^3.10.10"
+        "node": ">=8.15",
+        "npm": ">=3.10.8"
     },
     "dependencies": {
         "anymatch": "1.3.0",
@@ -95,7 +95,7 @@
         "localize-dist": "node scripts/properties2js dist",
         "unlocalize": "rimraf src/nls && git checkout -- src/nls",
         "postinstall": "grunt install",
-        "build": "grunt build-browser-dev",
+        "build": "grunt build-browser",
         "watch:api": "grunt watch:bramble",
         "preproduction": "grunt build-browser-compressed && npm run unlocalize",
         "production": "npm start -- --gzip",
