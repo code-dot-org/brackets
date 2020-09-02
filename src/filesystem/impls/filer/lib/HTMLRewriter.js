@@ -6,10 +6,15 @@ define(function (require, exports, module) {
     var Async = require("filesystem/impls/filer/lib/async");
     var Content = require("filesystem/impls/filer/lib/content");
     var CSSRewriter = require("filesystem/impls/filer/lib/CSSRewriter");
-    var UrlCache = require("filesystem/impls/filer/UrlCache");
+    var BlobUtils = require("filesystem/impls/filer/BlobUtils");
     var Path = require("filesystem/impls/filer/FilerUtils").Path;
     var decodePath = require("filesystem/impls/filer/FilerUtils").decodePath;
-    var PreferencesManager = brackets.getModule("preferences/PreferencesManager");
+
+    /**
+     * This variable controls whether or not we want scripts to be run in the preview window or not
+     * We do this by altering the mime type from text/javascript to text/x-scripts-disabled below.
+     */
+    var jsEnabled = true;
 
     /**
      * Provides a way to force JS to run when disabled, but only once.
@@ -46,7 +51,7 @@ define(function (require, exports, module) {
                 return;
             }
 
-            var url = UrlCache.getUrl(fullPath);
+            var url = BlobUtils.getUrl(fullPath);
             if(url === fullPath) {
                 console.log("[HTMLRewriter warning] couldn't get URL for `" + fullPath + "`");
             } else {
@@ -104,9 +109,6 @@ define(function (require, exports, module) {
         // TODO: https://developer.mozilla.org/en-US/docs/Web/CSS/Alternative_style_sheets
         var elements = this.doc.querySelectorAll("link[rel='stylesheet']");
 
-        // Cache of URLs for rewritten CSS from this current call to styleSheetLinks
-        var cachedUrls = {};
-
         Async.eachSeries(elements, function(element, callback) {
             var path = decodePath(element.getAttribute("href"));
             var fullPath = Path.resolve(dir, path);
@@ -116,20 +118,12 @@ define(function (require, exports, module) {
                 return;
             }
 
-            // If we've already rewritten this CSS file once during this rewrite session,
-            // reuse the generated URL so we don't invalidate the previous one.
-            if(cachedUrls[fullPath]) {
-                element.href = cachedUrls[fullPath];
-                return callback();
-            }
-
             // If the user has the given CSS file open in an editor,
             // use that; otherwise, get it from disk.
             server.serveLiveDocForPath(fullPath, function(err, url) {
                 if(err || url === fullPath) {
                     console.log("[HTMLRewriter warning] couldn't get URL for `" + fullPath + "`", err);
                 } else {
-                    cachedUrls[fullPath] = url;
                     element.href = url;
                 }
                 callback();
@@ -139,8 +133,7 @@ define(function (require, exports, module) {
 
     HTMLRewriter.prototype.scripts = function(callback) {
         var elements = this.doc.querySelectorAll("script");
-        //This variable "jsEnabled" controls whether or not we want scripts to be run in the preview window or not
-        var jsEnabled = PreferencesManager.get("allowJavaScript");
+
         function maybeDisable(element) {
             // Skip any scripts we've injected for live dev.
             if(!element.getAttribute("data-brackets-id")) {
@@ -169,20 +162,15 @@ define(function (require, exports, module) {
         }
         // We may or may not have a server for rewriting live CSS docs in <link>s (e.g.,
         // when we `fs.writeFile()` and generate cached Blob URLs in `handleFile()`).
-        // If we don't, use `UrlCache.getUrl()` instead to read from the fs.
+        // If we don't, use `BlobUtils.getUrl()` instead to read from the fs.
         if(!server) {
             server = {
                 serveLiveDocForPath: function(path, callback) {
                     setTimeout(function() {
-                        callback(null, UrlCache.getUrl(path));
+                        callback(null, BlobUtils.getUrl(path));
                     }, 0);
                 }
             };
-        }
-
-        // We don't always need to rewrite, so return early if it's not needed.
-        if(!UrlCache.getShouldRewriteUrls()) {
-            return callback(null, html);
         }
 
         var rewriter = new HTMLRewriter(path, html, server);
@@ -229,6 +217,12 @@ define(function (require, exports, module) {
     }
 
     exports.rewrite = rewrite;
+    exports.enableScripts = function() {
+        jsEnabled = true;
+    };
+    exports.disableScripts = function() {
+        jsEnabled = false;
+    };
     exports.forceScriptsOnce = function() {
         jsEnabledOverride = true;
     };

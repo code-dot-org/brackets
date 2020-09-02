@@ -32,7 +32,10 @@ define(function (require, exports, module) {
         });
     }
 
-    function sendActiveEditorChangeEvent(fullPath, filename) {
+    function sendActiveEditorChangeEvent(file) {
+        var fullPath = file.fullPath;
+        var filename = Path.basename(fullPath);
+
         sendEvent({
             type: "bramble:activeEditorChange",
             fullPath: fullPath,
@@ -62,60 +65,24 @@ define(function (require, exports, module) {
             });
         });
 
-        // Listen for changes to the sidebar
-        BrambleEvents.on("bramble:dialogOpened", function(e) {
-            sendEvent({
-                type: "bramble:dialogOpened"
-            });
-        });
-
-        // Listen for changes to the sidebar
-        BrambleEvents.on("bramble:dialogClosed", function(e) {
-            sendEvent({
-                type: "bramble:dialogClosed"
-            });
-        });
-
-        // Listen for user changing file content
-        BrambleEvents.on("bramble:projectDirty", function(e, path) {
-            sendEvent({
-                type: "bramble:projectDirty",
-                path: path
-            });
-        });
-
-        // Listen for files being saved for the whole project
-        BrambleEvents.on("bramble:projectSaved", function(e) {
-            sendEvent({
-                type: "bramble:projectSaved"
-            });
-        });
-
         // Listen for the user changing what file is being viewed
         var lastKnownEditorFilePath;
         MainViewManager.on("currentFileChange", function(e, file) {
             if(!file) {
-                lastKnownEditorFilePath = "";
-                sendActiveEditorChangeEvent("", "");
                 return;
             }
 
-            var fullPath = file.fullPath;
-            var filename = Path.basename(fullPath);
-
-            if(fullPath !== lastKnownEditorFilePath) {
-                lastKnownEditorFilePath = fullPath;
-                sendActiveEditorChangeEvent(fullPath, filename);
+            if(file.fullPath !== lastKnownEditorFilePath) {
+                lastKnownEditorFilePath = file.fullPath;
+                sendActiveEditorChangeEvent(file);
             }
         });
 
         // Listen for file rename
         BrambleEvents.on("fileRenamed", function(e, oldFilePath, newFilePath) {
             if (oldFilePath === lastKnownEditorFilePath) {
-                var fullPath = newFilePath;
-                var filename = Path.basename(fullPath);
-                lastKnownEditorFilePath = fullPath;
-                sendActiveEditorChangeEvent(fullPath, filename);
+                lastKnownEditorFilePath = newFilePath;
+                sendActiveEditorChangeEvent({ fullPath: newFilePath });
             }
         });
 
@@ -158,84 +125,6 @@ define(function (require, exports, module) {
                 wordWrap: PreferencesManager.get("wordWrap")
             });
         });
-
-        // Listen for changes to close tags
-        PreferencesManager.on("change", "closeTags", function () {
-            sendEvent({
-                type: "bramble:autoCloseTagsChange",
-                autoCloseTags: PreferencesManager.get("closeTags")
-            });
-        });
-
-        // Listen for changes to allow javascript
-        PreferencesManager.on("change", "allowJavaScript", function () {
-            sendEvent({
-                type: "bramble:allowJavaScriptChange",
-                allowJavaScript: PreferencesManager.get("allowJavaScript")
-            });
-        });
-
-        // Listen for changes to allow whitespace
-        var whitespacePrefs = PreferencesManager.getExtensionPrefs("denniskehrig.ShowWhitespace");
-        whitespacePrefs.on("change", function (e, data) {
-            if(data.ids.indexOf("enabled") === -1) {
-                return;
-            }
-            sendEvent({
-                type: "bramble:allowWhiteSpaceChange",
-                allowWhiteSpace: whitespacePrefs.get("enabled")
-            });
-        });
-
-        // Listen for changes to TagHints
-        PreferencesManager.on("change", "codehint.TagHints", function () {
-            sendEvent({
-                type: "bramble:autocompleteChange",
-                value: PreferencesManager.get("codehint.TagHints")
-            });
-        });
-
-        // Listen for changes to AttrHints
-        PreferencesManager.on("change", "codehint.AttrHints", function () {
-            sendEvent({
-                type: "bramble:autocompleteChange",
-                value: PreferencesManager.get("codehint.AttrHints")
-            });
-        });
-
-
-        // Listen for changes to JSHints
-        PreferencesManager.on("change", "codehint.JSHints", function () {
-            sendEvent({
-                type: "bramble:autocompleteChange",
-                value: PreferencesManager.get("codehint.JSHints")
-            });
-        });
-
-
-        // Listen for changes to CssPropHints
-        PreferencesManager.on("change", "codehint.CssPropHints", function () {
-            sendEvent({
-                type: "bramble:autocompleteChange",
-                value: PreferencesManager.get("codehint.CssPropHints")
-            });
-        });
-
-        //Listen for changes to auto update
-        PreferencesManager.on("change", "autoUpdate", function () {
-            sendEvent({
-                type: "bramble:autoUpdateChange",
-                autoUpdate: PreferencesManager.get("autoUpdate")
-            });
-        });
-
-        // Listen for changes to open SVG as XML
-        PreferencesManager.on("change", "openSVGasXML", function () {
-            sendEvent({
-                type: "bramble:openSVGasXMLChange",
-                openSVGasXML: PreferencesManager.get("openSVGasXML")
-            });
-        });
     }
 
     /**
@@ -243,14 +132,8 @@ define(function (require, exports, module) {
      */
     function loaded() {
         var initialFile = MainViewManager.getCurrentlyViewedFile();
-        var fullPath = "";
-        var filename = "";
-
-        // avoid exception when the editor is not viewing any file
-        if (initialFile) {
-            fullPath = initialFile.fullPath;
-            filename = Path.basename(fullPath);
-        }
+        var fullPath = initialFile.fullPath;
+        var filename = Path.basename(fullPath);
 
         var $firstPane = $("#first-pane");
         var $secondPane = $("#second-pane");
@@ -267,12 +150,7 @@ define(function (require, exports, module) {
             previewMode: UI.getPreviewMode(),
             fontSize: ViewCommandHandlers.getFontSize(),
             theme: Theme.getTheme(),
-            wordWrap: PreferencesManager.get("wordWrap"),
-            autoCloseTags: PreferencesManager.get("closeTags"),
-            autoUpdate: PreferencesManager.get("autoUpdate"),
-            openSVGasXML: PreferencesManager.get("openSVGasXML"),
-            allowJavaScript: PreferencesManager.get("allowJavaScript"),
-            allowWhiteSpace: PreferencesManager.getExtensionPrefs("denniskehrig.ShowWhitespace").get("enabled")
+            wordWrap: PreferencesManager.get("wordWrap")
         });
     }
 

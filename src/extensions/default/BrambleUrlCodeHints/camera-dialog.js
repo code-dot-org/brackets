@@ -7,8 +7,6 @@ define(function (require, exports, module) {
     "use strict";
 
     var Dialog = brackets.getModule("widgets/Dialogs");
-    var Mustache = brackets.getModule("thirdparty/mustache/mustache");
-
     var selfieDialogHTML = require("text!dialog.html");
     var Camera = require("camera/index");
 

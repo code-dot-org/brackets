@@ -7,26 +7,28 @@ define(function (require, exports, module) {
     var Content = require("filesystem/impls/filer/lib/content");
     var async = require("filesystem/impls/filer/lib/async");
     var BracketsFiler = require("filesystem/impls/filer/BracketsFiler");
-    var UrlCache = require("filesystem/impls/filer/UrlCache");
+    var BlobUtils = require("filesystem/impls/filer/BlobUtils");
     var Path = BracketsFiler.Path;
     var Transforms = require("filesystem/impls/filer/lib/transforms");
     var StartupState = require("bramble/StartupState");
     var decodePath = require("filesystem/impls/filer/FilerUtils").decodePath;
 
-    // Walk the project root dir and make sure we have URLs generated for
-    // all file paths.  Skip CSS and HTML files, since we need to rewrite them
-    // before they are useful (e.g., for linked files within them).
+    // Walk the project root dir and make sure we have Blob URLs generated for
+    // all file paths.
     exports.refresh = function(callback) {
         var fs = BracketsFiler.fs();
 
         function _getUrlAsync(filename, callback) {
             var decodedFilename = decodePath(filename);
-            var cachedUrl = UrlCache.getUrl(filename);
+            var cachedUrl = BlobUtils.getUrl(filename);
 
-            // For Blob URLs, skip HTML and CSS files, since we need to run a rewriter over them
-            // before we can serve.
-            if(Content.needsRewriting(Path.extname(decodedFilename)) && UrlCache.getShouldRewriteUrls()) {
-                return callback(null);
+            // If we get a Blob URL (i.e., not the filename back) and get it
+            // synchronously, run the callback and yield to main thread.
+            if(cachedUrl !== filename) {
+                setTimeout(function() {
+                    callback(null, cachedUrl);
+                }, 0);
+                return;
             }
 
             fs.readFile(decodedFilename, null, function(err, data) {
@@ -36,7 +38,8 @@ define(function (require, exports, module) {
                 }
 
                 var mime = Content.mimeFromExt(Path.extname(decodedFilename));
-                UrlCache.createURL(filename, data, mime, callback);
+                var url = BlobUtils.createURL(filename, data, mime);
+                callback(null, url);
             });
         }
 
@@ -46,7 +49,7 @@ define(function (require, exports, module) {
                     return callback(err);
                 }
 
-                function _getUrl(name, callback) {
+                function _getBlobUrl(name, callback) {
                     name = Path.join(dirPath, name);
 
                     fs.stat(name, function(err, stats) {
@@ -69,15 +72,10 @@ define(function (require, exports, module) {
                     });
                 }
 
-                async.eachSeries(entries, _getUrl, callback);
+                async.eachSeries(entries, _getBlobUrl, callback);
             });
         }
 
-        UrlCache.clear(function(err) {
-            if(err) {
-                return callback(err);
-            }
-            _load(StartupState.project("root"), callback);
-        });
+        _load(StartupState.project("root"), callback);
     };
 });

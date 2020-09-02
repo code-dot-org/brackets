@@ -1,7 +1,7 @@
 <!doctype html>
 
 <!--
-  Copyright (c) 2012 - present Adobe Systems Incorporated. All rights reserved.
+  Copyright (c) 2012 Adobe Systems Incorporated. All rights reserved.
    
   Permission is hereby granted, free of charge, to any person obtaining a
   copy of this software and associated documentation files (the "Software"),
@@ -96,23 +96,24 @@
             height: 100vh;
             visibility: hidden;
         }
-
-        #iframe-warning {
-            display: none;
-            padding: 20px;
-            font-size: 16px;
-        }
     </style>
 
     <!-- NOTE: All scripts must be external for Chrome App support: http://developer.chrome.com/apps/app_csp.html -->
 
-    <!--(if target dev)><!-->
+    <!-- Warn about failed cross origin requests in Chrome -->
+    <script type="application/javascript" src="xorigin.js"></script>
+
     <link rel="stylesheet" type="text/css" href="thirdparty/CodeMirror/lib/codemirror.css">
-    <link rel="stylesheet/less" type="text/css" href="styles/bramble.less">
+
+    <!--(if target dev)><!-->
+    <link rel="stylesheet" type="text/less" href="styles/brackets.less">
     <!--<!(endif)-->
     <!--(if target dist)>
     <link rel="stylesheet" type="text/css" href="styles/brackets.min.css">
     <!--<!(endif)-->
+    
+    <!-- Bramble CSS overrides for cross-browser compatibility issues -->
+    <link rel="stylesheet" type="text/css" href="styles/bramble_overrides.css">
 </head>
 <body>
     <!-- We show a spinner on startup, which gets removed when loaded by
@@ -120,11 +121,6 @@
     -->
     <div id="spinner-container">
         <div class="sk-spinner sk-spinner-rotating-plane"></div>
-        <div id="iframe-warning">
-            <h1>Bramble must be hosted</h1>
-            <p>Oops! Bramble was loaded directly, outside of an iframe. For security it must be hosted in an iframe.</p>
-            <p>For local development, you can run Bramble in an iframe by using <a href="hosted.html">hosted.html</a> instead of <strong>index.html<strong>.</p>
-        </div>
     </div>
 
     <!-- HTML content is dynamically loaded and rendered by brackets.js.
@@ -135,22 +131,21 @@
     <div id="main-view"></div>
 
     <!-- JavaScript -->
-
-    <!--(if target dev)>><!-->
-    <!-- We only use LESS in development.  In dist builds, we pre-compile to CSS -->
-    <script src="thirdparty/less.min.js"></script>
-    <!--<!(endif)-->
-
     <!-- Pre-load third party scripts that cannot be async loaded. -->
     <!-- build:js thirdparty/thirdparty.min.js -->
     <script src="thirdparty/browser-appshell.js"></script>
+    <script src="thirdparty/less-config.js"></script>
+    <script src="thirdparty/less-1.7.5.min.js"></script>
+    <script src="thirdparty/mustache/mustache.js"></script>
     <script src="thirdparty/jquery-2.1.3.min.js"></script>
     <!-- endbuild -->
-
+    
     <!-- All other scripts are loaded through require. -->
     <!-- build:js main.js -->
     <script src="thirdparty/require.min.js" data-main="main"></script>
     <!-- endbuild -->
 
+    <!-- Verify that all dependencies are loaded. -->
+    <script src="dependencies.js"></script>
 </body>
 </html>

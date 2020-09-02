@@ -1,13 +1,7 @@
 {
     "unknown": {
-        "name": "Unknown",
-        "isBinary": true
-    },
-
-    "text": {
         "name": "Text",
-        "mode": ["null", "text/plain"],
-        "fileExtensions": ["txt", "ini", "cfg"]
+        "mode": ["null", "text/plain"]
     },
 
     "css": {
@@ -20,22 +14,14 @@
     "html": {
         "name": "HTML",
         "mode": ["htmlmixed", "text/x-brackets-html"],
-        "fileExtensions": ["html", "htm", "shtm", "shtml", "xhtml", "cfm", "cfml", "cfc", "dhtml", "xht", "tpl", "twig", "kit", "jsp", "aspx", "ascx", "asp", "master", "cshtml", "vbhtml"],
+        "fileExtensions": ["html", "htm", "shtm", "shtml", "xhtml", "cfm", "cfml", "cfc", "dhtml", "xht", "tpl", "twig", "hbs", "handlebars", "kit", "jsp", "aspx", "ascx", "asp", "master", "cshtml", "vbhtml"],
         "blockComment": ["<!--", "-->"]
     },
-
+    
     "javascript": {
         "name": "JavaScript",
         "mode": "javascript",
-        "fileExtensions": ["js", "js.erb", "jsm", "_js"],
-        "blockComment": ["/*", "*/"],
-        "lineComment": ["//"]
-    },
-
-    "jsx": {
-        "name": "JSX",
-        "mode": "jsx",
-        "fileExtensions": ["jsx"],
+        "fileExtensions": ["js", "jsx", "js.erb", "jsm", "_js"],
         "blockComment": ["/*", "*/"],
         "lineComment": ["//"]
     },
@@ -47,14 +33,7 @@
         "fileNames": [".jshintrc", ".bowerrc"]
     },
 
-    "xml": {
-        "name": "XML",
-        "mode": "xml",
-        "fileExtensions": ["xml", "wxs", "wxl", "wsdl", "rss", "atom", "rdf", "xslt", "xsl", "xul", "xsd", "xbl", "mathml", "config", "plist", "xaml"],
-        "blockComment": ["<!--", "-->"]
-    },
-
-    "svg": {
+     "svg": {
         "name": "SVG",
         "mode": ["xml", "image/svg+xml"],
         "fileExtensions": ["svg"],
@@ -67,13 +46,19 @@
         "fileExtensions": ["md", "markdown", "mdown", "mkdn"],
         "blockComment": ["<!--", "-->"]
     },
-
+  
     "image": {
         "name": "Image",
         "fileExtensions": ["gif", "png", "jpe", "jpeg", "jpg", "ico", "bmp", "webp"],
         "isBinary": true
     },
-
+    
+    "audio": {
+        "name": "Audio",
+        "fileExtensions": ["mp3", "wav", "aif", "aiff", "ogg"],
+        "isBinary": true
+    },
+    
     "binary": {
         "name": "Other Binary",
         "fileExtensions": [

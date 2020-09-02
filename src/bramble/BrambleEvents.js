@@ -22,22 +22,12 @@ define(function (require, exports, module) {
     EventDispatcher.makeEventDispatcher(exports);
 
     // bramble:updateLayoutStart event when layout begins to change
-    exports.triggerUpdateLayoutStart = function() {
+    exports.triggerUpdateLayoutStart = function() {       
         triggerUpdateLayoutEvent("Start");
     };
 
-    // bramble:dialogOpened event when a modal dialog opens
-    exports.triggerDialogOpened = function() {
-      exports.trigger("bramble:dialogOpened");
-    };
-
-    // bramble:dialogOpened event when a modal dialog closes
-    exports.triggerDialogClosed = function() {
-      exports.trigger("bramble:dialogClosed");
-    };
-
     // bramble:updateLayoutEnd event when layout finishes changing
-    exports.triggerUpdateLayoutEnd = function() {
+    exports.triggerUpdateLayoutEnd = function() {        
         triggerUpdateLayoutEvent("End");
     };
 
@@ -45,12 +35,6 @@ define(function (require, exports, module) {
     // `mode` should be "desktop" or "mobile"
     exports.triggerPreviewModeChange = function(mode) {
         exports.trigger("bramble:previewModeChange", mode);
-    };
-
-    // Triggers when the fullscreen is disabled so that we can send out the
-    // proper pane widths to Thimble.
-    exports.triggerFullscreeDisabled = function() {
-        triggerUpdateLayoutEvent("End");
     };
 
     // bramble:themeChange event when the theme is switched
@@ -82,15 +66,5 @@ define(function (require, exports, module) {
     // enabling/disabling the inspector
     exports.triggerInspectorChange = function(enabled) {
         exports.trigger("bramble:inspectorChange", enabled);
-    };
-
-    // bramble:projectDirty event when file is dirty. Second arg is the path to the dirty file;
-    exports.triggerProjectDirty = function (path){
-        exports.trigger("bramble:projectDirty", path);
-    };
-
-    // bramble:projectSaved event when all files in the project are currently saved;
-    exports.triggerProjectSaved = function(){
-        exports.trigger("bramble:projectSaved");
     };
 });

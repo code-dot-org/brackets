@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 - present Adobe Systems Incorporated. All rights reserved.
+ * Copyright (c) 2014 Adobe Systems Incorporated. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -21,6 +21,7 @@
  *
  */
 
+/*global define, $*/
 /*unittests: FileTreeView*/
 
 /**
@@ -32,7 +33,6 @@ define(function (require, exports, module) {
     "use strict";
 
     var React             = require("thirdparty/react"),
-        ReactDOM          = require("thirdparty/react-dom"),
         Classnames        = require("thirdparty/classnames"),
         Immutable         = require("thirdparty/immutable"),
         _                 = require("thirdparty/lodash"),
@@ -40,16 +40,7 @@ define(function (require, exports, module) {
         LanguageManager   = require("language/LanguageManager"),
         FileTreeViewModel = require("project/FileTreeViewModel"),
         ViewUtils         = require("utils/ViewUtils"),
-        KeyEvent          = require("utils/KeyEvent"),
-        PreferencesManager = require("preferences/PreferencesManager"),
-        DragAndDrop       = require("utils/DragAndDrop"),
-        UrlCache          = require("filesystem/impls/filer/UrlCache"),
-        Menus             = require("command/Menus");
-
-    // XXXBramble
-    var FilerUtils        = require("filesystem/impls/filer/FilerUtils"),
-        Path              = FilerUtils.Path,
-        Content           = require("filesystem/impls/filer/lib/content");
+        KeyEvent          = require("utils/KeyEvent");
 
     var DOM = React.DOM;
 
@@ -68,8 +59,6 @@ define(function (require, exports, module) {
     var CLICK_RENAME_MINIMUM  = 500,
         RIGHT_MOUSE_BUTTON    = 2,
         LEFT_MOUSE_BUTTON     = 0;
-
-    var INDENTATION_WIDTH     = 10;
 
     /**
      * @private
@@ -120,40 +109,6 @@ define(function (require, exports, module) {
     }
 
     /**
-     * @private
-     *
-     * Create an appropriate div based "thickness" to indent the tree correctly.
-     *
-     * @param {int} depth The depth of the current node.
-     * @return {ReactComponent} The resulting div.
-     */
-    function _createThickness(depth) {
-        return DOM.div({
-            style: {
-                display: "inline-block",
-                width: INDENTATION_WIDTH * depth
-            }
-        });
-    }
-
-    /**
-     * @private
-     *
-     * Create, and indent correctly, the arrow icons used for the folders.
-     *
-     * @param {int} depth The depth of the current node.
-     * @return {ReactComponent} The resulting ins.
-     */
-    function _createAlignedIns(depth) {
-        return DOM.ins({
-            className: "jstree-icon",
-            style: {
-                marginLeft: INDENTATION_WIDTH * depth
-            }
-        });
-    }
-
-    /**
      * This is a mixin that provides rename input behavior. It is responsible for taking keyboard input
      * and invoking the correct action based on that input.
      */
@@ -186,14 +141,14 @@ define(function (require, exports, module) {
          * this component, so we keep the model up to date by sending every update via an action.
          */
         handleInput: function (e) {
-            this.props.actions.setRenameValue(this.refs.name.value.trim());
+            this.props.actions.setRenameValue(this.refs.name.getDOMNode().value.trim());
 
             if (e.keyCode !== KeyEvent.DOM_VK_LEFT &&
                     e.keyCode !== KeyEvent.DOM_VK_RIGHT) {
                 // update the width of the input field
-                var node = this.refs.name,
-                    newWidth = _measureText(node.value);
-                $(node).width(newWidth);
+                var domNode = this.refs.name.getDOMNode(),
+                    newWidth = _measureText(domNode.value);
+                $(domNode).width(newWidth);
             }
         },
 
@@ -226,7 +181,7 @@ define(function (require, exports, module) {
             var fullname = this.props.name,
                 extension = LanguageManager.getCompoundFileExtension(fullname);
 
-            var node = this.refs.name;
+            var node = this.refs.name.getDOMNode();
             node.setSelectionRange(0, _getName(fullname, extension).length);
             ViewUtils.scrollElementIntoView($("#project-files-container"), $(node), true);
         },
@@ -264,7 +219,6 @@ define(function (require, exports, module) {
          */
         handleMouseDown: function (e) {
             e.stopPropagation();
-
             if (e.button === RIGHT_MOUSE_BUTTON ||
                     (this.props.platform === "mac" && e.button === LEFT_MOUSE_BUTTON && e.ctrlKey)) {
                 this.props.actions.setContext(this.myPath());
@@ -275,6 +229,7 @@ define(function (require, exports, module) {
             if (this.props.entry.get("rename")) {
                 return;
             }
+            e.preventDefault();
         }
     };
 
@@ -379,7 +334,7 @@ define(function (require, exports, module) {
          */
         getInitialState: function () {
             return {
-                menuOpened: false
+                clickTimer: null
             };
         },
 
@@ -407,7 +362,18 @@ define(function (require, exports, module) {
                 // start with project-files-container instead of just the interior of
                 // project-files-container and then the file tree will be one self-contained
                 // functional unit.
-                ViewUtils.scrollElementIntoView($("#project-files-container"), $(ReactDOM.findDOMNode(this)), true);
+                ViewUtils.scrollElementIntoView($("#project-files-container"), $(this.getDOMNode()), true);
+            } else if (!isSelected && wasSelected && this.state.clickTimer !== null) {
+                this.clearTimer();
+            }
+        },
+
+        clearTimer: function () {
+            if (this.state.clickTimer !== null) {
+                window.clearTimeout(this.state.clickTimer);
+                this.setState({
+                    clickTimer: null
+                });
             }
         },
 
@@ -415,6 +381,7 @@ define(function (require, exports, module) {
             if (!this.props.entry.get("rename")) {
                 this.props.actions.startRename(this.myPath());
             }
+            this.clearTimer();
         },
 
         /**
@@ -424,7 +391,6 @@ define(function (require, exports, module) {
         handleClick: function (e) {
             // If we're renaming, allow the click to go through to the rename input.
             if (this.props.entry.get("rename")) {
-                e.stopPropagation();
                 return;
             }
 
@@ -432,36 +398,31 @@ define(function (require, exports, module) {
                 return;
             }
 
-            this.props.actions.setSelected(this.myPath());
+            if (this.props.entry.get("selected")) {
+                if (this.state.clickTimer === null && !this.props.entry.get("rename")) {
+                    var timer = window.setTimeout(this.startRename, CLICK_RENAME_MINIMUM);
+                    this.setState({
+                        clickTimer: timer
+                    });
+                }
+            } else {
+                this.props.actions.setSelected(this.myPath());
+            }
             e.stopPropagation();
             e.preventDefault();
         },
 
         /**
-         * When the user drags something over the file tree, use the location where they
-         * drag to set a hint for where files should be imported when dropped. This allows
-         * drag-and-drop to work deep into the filetree.
+         * When the user double clicks, we will select this file and add it to the working
+         * set (via the `selectInWorkingSet` action.)
          */
-        handleDragEnter: function (event) {
-            // If they drag over a file, assume they mean the file's parent dir.
-            DragAndDrop.setDropPathHint(this.props.parentPath);
-            event.stopPropagation();
-            event.preventDefault();
-        },
-
-        /**
-         * In browsers that support it, provide a download URL that will allow the
-         * user to drag files out of the filetree and into the OS.
-         */
-        handleDragStart: function (event) {
-            var filename = this.myPath();
-            var downloadUrl = UrlCache.getDownloadUrl(filename);
-            var dataTransfer = event.dataTransfer;
-
-            dataTransfer.setData("DownloadUrl", downloadUrl);
-            dataTransfer.effectAllowed = "copy";
-
-            event.stopPropagation();
+        handleDoubleClick: function () {
+            if (!this.props.entry.get("rename")) {
+                if (this.state.clickTimer !== null) {
+                    this.clearTimer();
+                }
+                this.props.actions.selectInWorkingSet(this.myPath());
+            }
         },
 
         /**
@@ -477,65 +438,15 @@ define(function (require, exports, module) {
             };
         },
 
-        handleToggleClick : function(event) {
-            if($(event.target).hasClass("toggle-open")){
-                Menus.closeAll();
-            } else {
-                this.props.actions.setContext(this.myPath());
-                var menuToggle = $(event.nativeEvent.target);
-                var e = $.Event("contextmenu");
-                e.menuToggleEl = event.target;
-                e.pageX = menuToggle.offset().left + 2;
-                e.pageY = menuToggle.offset().top + 26;
-                e.fileMenu = true;
-                e.fromToggle = true;
-                $("#project-files-container").trigger(e);
-            }
-
-            event.stopPropagation();
-            event.preventDefault();
-        },
-
         render: function () {
             var fullname = this.props.name,
-                ext = LanguageManager.getCompoundFileExtension(fullname),
-                name = _getName(fullname, ext),
-                mime = Content.mimeFromExt(ext),
-                fileType;
+                extension = LanguageManager.getCompoundFileExtension(fullname),
+                name = _getName(fullname, extension);
 
-            // Figure out which icon we want to show, relying on Content Type info.
-            if(Content.isHTML(ext)) {
-                fileType = "html";
-            } else if (Content.isImage(ext)) {
-                fileType = "image";
-            } else if (Content.isFont(ext)) {
-                fileType = "font";
-            } else if (Content.isAudio(ext)) {
-                fileType = "audio";
-            } else if (Content.isVideo(ext)) {
-                fileType = "video";
-            } else if (Content.isCSS(ext)) {
-                fileType = "css";
-            } else if (Content.isScript(ext)) {
-                fileType = "js";
-            } else if (Content.isPDF(ext)) {
-                fileType = "pdf";
-            } else {
-                // If it doesn't match anything else, do one last check for a text/* type
-                // and if it isn't that, assume binary.
-                if (mime.indexOf("text/") === 0) {
-                    fileType = "default";
-                } else {
-                    fileType = "binary";
-                }
-            }
-
-            var insClassName = "jstree-icon-" + fileType;
-
-            if (ext) {
-                ext = DOM.span({
+            if (extension) {
+                extension = DOM.span({
                     className: "extension"
-                }, "." + ext);
+                }, "." + extension);
             }
 
             var nameDisplay,
@@ -546,26 +457,7 @@ define(function (require, exports, module) {
                 'context-node': this.props.entry.get("context")
             });
 
-            var liArgs = [
-                {
-                    className: this.getClasses("jstree-leaf"),
-                    onClick: this.handleClick,
-                    onMouseDown: this.handleMouseDown,
-                    onDragEnter: this.handleDragEnter,
-                    onDragStart: this.handleDragStart,
-                    draggable: true
-                },
-                DOM.ins({
-                    className: insClassName
-                })
-            ];
-
-
-
-            var thickness = _createThickness(this.props.depth);
-
-            if (this.props.entry.get("rename") && !PreferencesManager.get("readOnly")) {
-                liArgs.push(thickness);
+            if (this.props.entry.get("rename")) {
                 nameDisplay = fileRenameInput({
                     actions: this.props.actions,
                     entry: this.props.entry,
@@ -577,17 +469,20 @@ define(function (require, exports, module) {
                 var aArgs = _.flatten([{
                     href: "#",
                     className: fileClasses
-                },
-                DOM.span({
-                    className: "menuToggle",
-                    onClick: this.handleToggleClick
-                }),thickness, this.getIcons(), name, ext]);
+                }, this.getIcons(), name, extension], true);
                 nameDisplay = DOM.a.apply(DOM.a, aArgs);
             }
 
-            liArgs.push(nameDisplay);
-
-            return DOM.li.apply(DOM.li, liArgs);
+            return DOM.li({
+                className: this.getClasses("jstree-leaf"),
+                onClick: this.handleClick,
+                onMouseDown: this.handleMouseDown,
+                onDoubleClick: this.handleDoubleClick
+            },
+                DOM.ins({
+                    className: "jstree-icon"
+                }, " "),
+                nameDisplay);
         }
     }));
 
@@ -659,7 +554,7 @@ define(function (require, exports, module) {
         componentDidMount: function () {
             var fullname = this.props.name;
 
-            var node = this.refs.name;
+            var node = this.refs.name.getDOMNode();
             node.setSelectionRange(0, fullname.length);
             ViewUtils.scrollElementIntoView($("#project-files-container"), $(node), true);
         },
@@ -717,11 +612,6 @@ define(function (require, exports, module) {
          * If you click on a directory, it will toggle between open and closed.
          */
         handleClick: function (event) {
-            if (this.props.entry.get("rename")) {
-                event.stopPropagation();
-                return;
-            }
-
             if (event.button !== LEFT_MOUSE_BUTTON) {
                 return;
             }
@@ -755,23 +645,6 @@ define(function (require, exports, module) {
         },
 
         /**
-         * If you drag something over a directory, make sure it's open so we can get
-         * at sub-directories for drop targets.
-         */
-        handleDragEnter: function(event) {
-            var isOpen = this.props.entry.get("open");
-            if(!isOpen) {
-                this.props.actions.setDirectoryOpen(this.myPath(), true);
-            }
-
-            // If they drag over a file, assume they mean the file's parent dir.
-            DragAndDrop.setDropPathHint(this.myPath());
-
-            event.stopPropagation();
-            event.preventDefault();
-        },
-
-        /**
          * Create the data object to pass to extensions.
          *
          * @return {{name: {string}, isFile: {boolean}, fullPath: {string}}} Data for extensions
@@ -784,35 +657,17 @@ define(function (require, exports, module) {
             };
         },
 
-        handleToggleClick : function(event) {
-            if($(event.target).hasClass("toggle-open")){
-                Menus.closeAll();
-            } else {
-                this.props.actions.setContext(this.myPath());
-                var menuToggle = $(event.nativeEvent.target);
-                var e = $.Event("contextmenu");
-                e.fromToggle = true;
-                e.menuToggleEl = event.target;
-                e.pageX = menuToggle.offset().left + 2;
-                e.pageY = menuToggle.offset().top + 26;
-                $("#project-files-container").trigger(e);
-            }
-
-            event.stopPropagation();
-            event.preventDefault();
-        },
-
         render: function () {
             var entry = this.props.entry,
                 nodeClass,
                 childNodes,
                 children = entry.get("children"),
-                isOpen = entry.get("open");
+                isOpen = entry.get("open"),
+                directoryClasses = "";
 
             if (isOpen && children) {
                 nodeClass = "open";
                 childNodes = directoryContents({
-                    depth: this.props.depth + 1,
                     parentPath: this.myPath(),
                     contents: children,
                     extensions: this.props.extensions,
@@ -825,50 +680,46 @@ define(function (require, exports, module) {
                 nodeClass = "closed";
             }
 
-            var nameDisplay,
-                cx = Classnames;
+            if (this.props.entry.get("selected")) {
+                directoryClasses += " jstree-clicked sidebar-selection";
+            }
 
-            var directoryClasses = cx({
-                'jstree-clicked sidebar-selection': entry.get("selected"),
-                'context-node': entry.get("context")
-            });
+            if (entry.get("context")) {
+                directoryClasses += " context-node";
+            }
 
-            var liArgs = [
-                {
-                    className: this.getClasses("jstree-" + nodeClass),
-                    onClick: this.handleClick,
-                    onMouseDown: this.handleMouseDown,
-                    onDragEnter: this.handleDragEnter
-                },
-                _createAlignedIns(this.props.depth)
-            ];
-
-            var thickness = _createThickness(this.props.depth);
-
+            var nameDisplay, renameInput;
             if (entry.get("rename")) {
-                liArgs.push(thickness);
-                nameDisplay = directoryRenameInput({
+                renameInput = directoryRenameInput({
                     actions: this.props.actions,
-                    entry: entry,
+                    entry: this.props.entry,
                     name: this.props.name,
                     parentPath: this.props.parentPath
                 });
-            } else {
-                // Need to flatten the arguments because getIcons returns an array
-                var aArgs = _.flatten([{
-                    href: "#",
-                    className: directoryClasses
-                },DOM.span({
-                    className: "menuToggle",
-                    onClick: this.handleToggleClick
-                }),thickness, this.getIcons(), this.props.name]);
-                nameDisplay = DOM.a.apply(DOM.a, aArgs);
             }
 
-            liArgs.push(nameDisplay);
-            liArgs.push(childNodes);
+            // Need to flatten the arguments because getIcons returns an array
+            var aArgs = _.flatten([{
+                href: "#",
+                className: directoryClasses
+            }, this.getIcons()], true);
+            if (!entry.get("rename")) {
+                aArgs.push(this.props.name);
+            }
 
-            return DOM.li.apply(DOM.li, liArgs);
+            nameDisplay = DOM.a.apply(DOM.a, aArgs);
+
+            return DOM.li({
+                className: this.getClasses("jstree-" + nodeClass),
+                onClick: this.handleClick,
+                onMouseDown: this.handleMouseDown
+            },
+                DOM.ins({
+                    className: "jstree-icon"
+                }, " "),
+                renameInput,
+                nameDisplay,
+                childNodes);
         }
     }));
 
@@ -913,7 +764,6 @@ define(function (require, exports, module) {
 
                 if (FileTreeViewModel.isFile(entry)) {
                     return fileNode({
-                        depth: this.props.depth,
                         parentPath: this.props.parentPath,
                         name: name,
                         entry: entry,
@@ -925,7 +775,6 @@ define(function (require, exports, module) {
                     });
                 } else {
                     return directoryNode({
-                        depth: this.props.depth,
                         parentPath: this.props.parentPath,
                         name: name,
                         entry: entry,
@@ -961,7 +810,7 @@ define(function (require, exports, module) {
                 return;
             }
 
-            var node = ReactDOM.findDOMNode(this),
+            var node = this.getDOMNode(),
                 selectedNode = $(node.parentNode).find(this.props.selectedClassName),
                 selectionViewInfo = this.props.selectionViewInfo;
 
@@ -978,17 +827,23 @@ define(function (require, exports, module) {
                 width = selectionViewInfo.get("width"),
                 scrollWidth = selectionViewInfo.get("scrollWidth");
 
+            // Avoid endless horizontal scrolling
+            if (left + width > scrollWidth) {
+                left = scrollWidth - width;
+            }
+
             return DOM.div({
                 style: {
                     overflow: "auto",
                     left: left,
+                    width: width,
                     display: this.props.visible ? "block" : "none"
                 },
                 className: this.props.className
             });
         }
     }));
-
+    
     /**
      * On Windows and Linux, the selection bar in the tree does not extend over the scroll bar.
      * The selectionExtension sits on top of the scroll bar to make the selection bar appear to span the
@@ -1010,8 +865,8 @@ define(function (require, exports, module) {
                 return;
             }
 
-            var node = ReactDOM.findDOMNode(this),
-                selectedNode = $(node.parentNode).find(this.props.selectedClassName).closest("li"),
+            var node = this.getDOMNode(),
+                selectedNode = $(node.parentNode).find(this.props.selectedClassName),
                 selectionViewInfo = this.props.selectionViewInfo;
 
             if (selectedNode.length === 0) {
@@ -1122,7 +977,6 @@ define(function (require, exports, module) {
                 }),
                 contents = directoryContents({
                     isRoot: true,
-                    depth: 1,
                     parentPath: this.props.parentPath,
                     sortDirectoriesFirst: this.props.sortDirectoriesFirst,
                     contents: this.props.treeData,
@@ -1131,7 +985,7 @@ define(function (require, exports, module) {
                     forceRender: this.props.forceRender,
                     platform: this.props.platform
                 });
-
+            
             return DOM.div(
                 null,
                 selectionBackground,
@@ -1158,7 +1012,7 @@ define(function (require, exports, module) {
             return;
         }
 
-        ReactDOM.render(fileTreeView({
+        React.render(fileTreeView({
             treeData: viewModel.treeData,
             selectionViewInfo: viewModel.selectionViewInfo,
             sortDirectoriesFirst: viewModel.sortDirectoriesFirst,

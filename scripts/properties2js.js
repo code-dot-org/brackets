@@ -48,14 +48,10 @@ var CONCURRENCY = { concurrency: 3 };
 var root = process.cwd();
 var src = path.join(root, "locales");
 var dest = path.join(root, process.argv.length > 2 ? process.argv[2] : "src", L10N_DIR);
-var templates = new Nunjucks.Environment(new Nunjucks.FileSystemLoader(path.join(root, "templates")), { autoescape: false });
+var templates = new Nunjucks.Environment(new Nunjucks.FileSystemLoader(path.join(root, "templates")));
 var destLocalizedStrings = {};
 var locales;
 var destLocales;
-
-templates.addFilter('escapeQuotes', function(str){
-    return str.replace(/"/g, "&quot;");
-});
 
 function getDestLocaleDir(locale) {
     "use strict";
@@ -98,7 +94,7 @@ function localizeBrackets(locale) {
             return Promise.resolve();
         }
 
-        if(isNewLocale && (destLocales.indexOf(localeDir) === -1)) {
+        if(isNewLocale) {
             destLocales.push(localeDir);
         }
 

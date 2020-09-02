@@ -1,4 +1,7 @@
-{
+﻿{
+    "file.close":  [
+        "Alt-W"
+    ],
     "file.close_all":  [
         "Ctrl-Shift-W"
     ],
@@ -33,6 +36,15 @@
             "key": "Cmd-Shift-Z",
             "platform": "mac"
         }
+    ],
+    "edit.cut": [
+        "Ctrl-X"
+    ],
+    "edit.copy": [
+        "Ctrl-C"
+    ],
+    "edit.paste": [
+        "Ctrl-V"
     ],
     "edit.selectAll":  [
         "Ctrl-A"
@@ -174,7 +186,7 @@
             "platform": "mac"
         }
     ],
-    "view.toggleSidebar":  [
+    "view.hideSidebar":  [
         {   
             "key" : "Ctrl-Alt-H"
         },
@@ -251,12 +263,38 @@
             "platform": "mac"
         }
     ],
-    "navigate.toggleQuickEdit":  [
+    "navigate.nextDoc":  [
         {
-            "key": "Alt-E"
+            "key": "Ctrl-Tab"
         },
         {
+            "key": "Ctrl-Tab",
+            "platform": "mac"
+        },
+        {
+            "key": "Cmd-Shift-]",
+            "platform": "mac"
+        }
+    ],
+    "navigate.prevDoc":  [
+        {
+            "key": "Ctrl-Shift-Tab"
+        },
+        {
+            "key": "Ctrl-Shift-Tab",
+            "platform": "mac"
+        },
+        {
+            "key": "Cmd-Shift-[",
+            "platform": "mac"
+        }
+    ],
+    "navigate.toggleQuickEdit":  [
+        {
             "key": "Ctrl-E"
+        },
+        {
+            "key": "Alt-E"
         }
     ],
     "navigate.toggleQuickDocs":  [
@@ -276,6 +314,9 @@
     ],
     "navigate.newRule":  [
         "Ctrl-Alt-N"
+    ],
+    "file.rename":  [
+        "F2"
     ],
     "help.support": [
         "F1"

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 - present Adobe Systems Incorporated. All rights reserved.
+ * Copyright (c) 2014 Adobe Systems Incorporated. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -21,6 +21,10 @@
  *
  */
 
+
+/*jslint vars: true, plusplus: true, devel: true, nomen: true, indent: 4, maxerr: 50 */
+/*global define */
+
 /**
  * Compatibility shims for running Brackets in various environments, browsers.
  */
@@ -34,16 +38,6 @@ define(function (require, exports, module) {
     if (!String.prototype.trimLeft) {
         String.prototype.trimLeft = function () { return this.replace(/^\s+/, ""); };
     }
-    
-    // Support for Math.log10 [IE11]
-    Math.log10 = Math.log10 || function(x) {
-        return Math.log(x) * Math.LOG10E;
-    };
-
-    // [IE] Number.isFinite() is missing
-    Number.isFinite = Number.isFinite || function(value) {
-        return typeof value === 'number' && isFinite(value);
-    };
 
     // Feature detection for Error.stack. Not all browsers expose it
     // and Brackets assumes it will be a non-null string.
