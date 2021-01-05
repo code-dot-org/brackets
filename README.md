@@ -1,26 +1,17 @@
-# Bramble is based on Brackets
+# Code.org's Bramble is based on Brackets
 
-Brackets is a modern open-source code editor for HTML, CSS
-and JavaScript that is  *built* in HTML, CSS and JavaScript.
+Code.org maintains a fork of [mozilla/brackets](https://github.com/mozilla/brackets), which is a fork of [adobe/brackets](https://github.com/adobe/brackets). Currently, we make changes directly to our fork. Please add a `CDO-Bramble` comment when you make a change to this repository -- if we encounter merge conflicts when pulling from upstream, this helps us understand which changes are ours and why they were made. Example:
 
-Brackets is at 1.0 and we're not stopping there. We have many feature ideas on our
-[trello board](http://bit.ly/BracketsTrelloBoard) that we're anxious to add and other
-innovative web development workflows that we're planning to build into Brackets.
-So take Brackets out for a spin and let us know how we can make it your favorite editor.
+```javascript
+// CDO-Bramble: We do not want to use this feature. Return early.
+return;
+```
 
-You can see some
-[screenshots of Brackets](https://github.com/adobe/brackets/wiki/Brackets-Screenshots)
-on the wiki, [intro videos](http://www.youtube.com/user/CodeBrackets) on YouTube, and news on the [Brackets blog](http://blog.brackets.io/).
-
-The text editor inside Brackets is based on
-[CodeMirror](http://github.com/codemirror/CodeMirror)&mdash;thanks to Marijn for
-taking our pull requests, implementing feature requests and fixing bugs! See
-[Notes on CodeMirror](https://github.com/adobe/brackets/wiki/Notes-on-CodeMirror)
-for info on how we're using CodeMirror.
+Ideally, this comment will also tell us _why_ functionality is being changed so we understand in the future if that change is still wanted/necessary.
 
 # How to setup Bramble (Brackets) in your local machine
 
-Step 1: Make sure you clone our fork of [Bramble](https://github.com/mozilla/brackets) recursively.
+Step 1: Make sure you clone our fork of [Bramble](https://github.com/code-dot-org/bramble) recursively.
 
 ```
 $ git clone https://github.com/code-dot-org/bramble.git --recursive
@@ -69,6 +60,17 @@ should host Bramble's iframe, see `src/hosted.js`.
 **NOTE 2:** Using `npm run build` will overwrite contents in the `src/nls` folder. These changes are necessary if you access Bramble using [http://localhost:8000/src](http://localhost:8000/src). After using Bramble, you can undo the changes by running `npm run unlocalize`.
 
 **NOTE 3:** To use Bramble in a production setting locally, you can run `npm run production` and access Bramble at [http://localhost:8000/dist](http://localhost:8000/dist)
+
+# Publishing a new version of Bramble
+
+_Note: These instructions are specific to Code.org. We publish and host new versions of Bramble using S3, which means you need permissions to access AWS as a Code.org engineer. We used to also publish Bramble to NPM ([@code-dot-org/bramble](https://www.npmjs.com/package/@code-dot-org/bramble)), but we only use S3 now -- do not publish new versions to NPM._
+
+1. Generate a new build by running `npm run build` from the root directory. This updates the `dist/` directory, which is our build output.
+2. Log in to S3 using your Code.org credentials.
+3. Go to the `downloads.computinginthecore.org` bucket.
+4. Create a new folder for our new build called `bramble_{version}`.
+5. Open that new folder and upload the contents `dist/`.
+6. You now have a new version of Bramble that is publically accessible!
 
 # Extension Loading
 
