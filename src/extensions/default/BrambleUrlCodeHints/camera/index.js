@@ -28,7 +28,7 @@ define(function (require, exports, module) {
         this.interface = new Interface(this);
     }
 
-    // CDO-Bramble: Disable camera support. It is currently only used to take "selfies"
+    // CDO-Bramble: Disable camera support. As of Jan. 2021, this property is only used to take "selfies"
     // as a source for <img> elements, which we do not support.
     // Expose a feature testing property for browsers that
     // do not support this functionality of HTML5
