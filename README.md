@@ -63,7 +63,7 @@ should host Bramble's iframe, see `src/hosted.js`.
 
 # Publishing a new version of Bramble
 
-_Note: These instructions are specific to Code.org. We publish and host new versions of Bramble using S3, which means you need permissions to access AWS as a Code.org engineer. We used to also publish Bramble to NPM ([@code-dot-org/bramble](https://www.npmjs.com/package/@code-dot-org/bramble)), but we only use S3 now -- do not publish new versions to NPM._
+_Note: These instructions are specific to Code.org. We publish and host new versions of Bramble using S3, which means you need permissions to access AWS as a Code.org engineer. We used to also publish Bramble to NPM ([@code-dot-org/bramble](https://www.npmjs.com/package/@code-dot-org/bramble)), but we only use S3 now -- do not publish new versions to NPM. If we were to begin publishing Bramble to NPM again, we would need to first publish a new version to NPM as it is already out of date._
 
 1. Generate a new build by running `npm run build` from the root directory. This updates the `dist/` directory, which is our build output.
 2. Log in to S3 using your Code.org credentials.
