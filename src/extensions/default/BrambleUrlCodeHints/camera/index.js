@@ -27,9 +27,12 @@ define(function (require, exports, module) {
         this.photo = new Photo(this);
         this.interface = new Interface(this);
     }
+
+    // CDO-Bramble: Disable camera support. As of Jan. 2021, this property is only used to take "selfies"
+    // as a source for <img> elements, which we do not support.
     // Expose a feature testing property for browsers that
     // do not support this functionality of HTML5
-    Camera.isSupported = !!getUserMedia;
+    Camera.isSupported = false;
 
     // Initiate the camera by requesting access to the user's webcam
     Camera.prototype.start = function() {

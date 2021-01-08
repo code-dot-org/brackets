@@ -125,6 +125,9 @@ define(function (require, exports, module) {
     }
 
     AppInit.htmlReady(function () {
+        // CDO-Bramble: We do not want to display the JavaScript console. Return early.
+        return;
+
         ExtensionUtils.loadStyleSheet(module, "../stylesheets/consoleTheme.less");
 
         // Localization & Creation of HTMl Elements
