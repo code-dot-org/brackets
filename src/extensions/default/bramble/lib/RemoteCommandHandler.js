@@ -188,6 +188,8 @@ define(function (require, exports, module) {
             CommandManager.execute("bramble.showUploadFiles").always(callback);
             break;
         case "BRAMBLE_FILE_REFRESH":
+            // CDO-Bramble: Allows us to manually refresh the file tree. This is
+            // necessary because we manage our own "Manage Assets" modal for uploading images.
             skipCallback = true;
             CommandManager
                 .execute("bramble.fileRefresh")
