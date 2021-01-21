@@ -962,12 +962,6 @@ define(function (require, exports, module) {
 
         if (isFolder) {
             newPath += "/";
-        } else {
-            var blockedPath = this.projectRoot.fullPath + 'index.html';
-            if (newPath.toLowerCase() === blockedPath.toLowerCase()) {
-                this.cancelRename();
-                return;
-            }
         }
 
         delete this._selections.rename;
