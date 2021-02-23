@@ -338,12 +338,16 @@ to be notified when the action completes:
 * `hideTutorial([callback])` - stops showing tutorial (i.e., tutorial.html) and uses editor contents in preview
 * `showUploadFilesDialog([callback])` - shows the Upload Files dialog, allowing users to drag-and-drop, upload a file, or take a selfie.
 * `addNewFile([options, callback])` - adds a new text file, using the provided options, which can include: `filename` a `String` with the complete filename to use; `contents` a `String` with the new text file's data; `ext` a `String` with the new file's extension; `basenamePrefix` a `String` with the basename to use when generating a new filename.  NOTE: if you provide `filename`, `basenamePrefix` and `ext` are ignored.
-* `fileRefresh([callback])` - refreshes files in the project tree (custom for CDO-Bramble).
 * `addNewFolder([callback])` - adds a new folder.
 * `export([callback])` - creates an archive `.zip` file of the entire project's filesystem, and downloads it to the browser.
 * `addCodeSnippet(snippet, [callback])` - adds a new code `snippet` to the editor (if it is in focus) at the current cursor position. One required parameter (`snippet`) needs to be passed in which needs to be a `String`.
 * `openSVGasXML([callback])` - treats `.svg` files as XML and shows them in the text editor.
 * `openSVGasImage([callback])` - treats `.svg` files as Images and shows them in image viewer.
+
+The following instance methods are custom to Code.org's fork of Bramble:
+* `fileRefresh([callback])` - refreshes files in the project tree.
+* `enableReadonly()` - enables readOnly mode for the current editor.
+* `disableReadonly()` - disables readOnly mode for the current editor.
 
 ## Bramble Instance Events
 
