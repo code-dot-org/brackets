@@ -1176,5 +1176,19 @@ define([
         }, callback);
     };
 
+    /**
+     * CDO-Bramble: Enable readOnly mode in the current editor.
+     */
+    BrambleProxy.prototype.enableReadonly = function() {
+        this._executeRemoteCommand({commandCategory: "bramble", command: "BRAMBLE_ENABLE_READONLY"});
+    }
+
+    /**
+     * CDO-Bramble: Disable readOnly mode in the current editor.
+     */
+    BrambleProxy.prototype.disableReadonly = function() {
+        this._executeRemoteCommand({commandCategory: "bramble", command: "BRAMBLE_DISABLE_READONLY"});
+    }
+
     return Bramble;
 });
