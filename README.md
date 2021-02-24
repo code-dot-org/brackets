@@ -71,6 +71,7 @@ _Note: These instructions are specific to Code.org. We publish and host new vers
 4. Create a new folder for our new build called `bramble_{version}`.
 5. Open that new folder and upload the contents `dist/`.
 6. You now have a new version of Bramble that is publically accessible!
+7. Update the package.json file in this repository to match the new version. This is just for organization and clarity.
 
 # Extension Loading
 
