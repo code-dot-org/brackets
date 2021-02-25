@@ -2402,7 +2402,7 @@ define(function (require, exports, module) {
     };
 
     // CDO-Bramble: Set readOnly mode.
-    Editor.prototype.setReadonly = function(value) {
+    Editor.prototype.setReadOnly = function(value) {
         this._codeMirror.setOption("readOnly", value);
     };
 

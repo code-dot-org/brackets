@@ -691,10 +691,10 @@ define(function (require, exports, module) {
     }
 
     // CDO-Bramble: Set readOnly mode for the current editor.
-    function setEditorReadonly(value) {
+    function setEditorReadOnly(value) {
         var currentEditor = getCurrentFullEditor();
         if (currentEditor) {
-            currentEditor.setReadonly(value);
+            currentEditor.setReadOnly(value);
         }
     }
 
@@ -895,7 +895,7 @@ define(function (require, exports, module) {
     exports.closeInlineWidget             = closeInlineWidget;
     exports.openDocument                  = openDocument;
     exports.canOpenPath                   = canOpenPath;
-    exports.setEditorReadonly             = setEditorReadonly;
+    exports.setEditorReadOnly             = setEditorReadOnly;
 
     // Convenience Methods
     exports.getActiveEditor               = getActiveEditor;

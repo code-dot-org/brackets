@@ -346,8 +346,8 @@ to be notified when the action completes:
 
 The following instance methods are custom to Code.org's fork of Bramble:
 * `fileRefresh([callback])` - refreshes files in the project tree.
-* `enableReadonly()` - enables readOnly mode for the current editor.
-* `disableReadonly()` - disables readOnly mode for the current editor.
+* `enableReadOnly()` - enables readOnly mode for the current editor.
+* `disableReadOnly()` - disables readOnly mode for the current editor.
 
 ## Bramble Instance Events
 

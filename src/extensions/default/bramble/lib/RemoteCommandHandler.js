@@ -232,10 +232,10 @@ define(function (require, exports, module) {
                 .always(callback);
             break;
         case "BRAMBLE_ENABLE_READONLY":
-            EditorManager.setEditorReadonly(true);
+            EditorManager.setEditorReadOnly(true);
             break;
         case "BRAMBLE_DISABLE_READONLY":
-            EditorManager.setEditorReadonly(false);
+            EditorManager.setEditorReadOnly(false);
             break;
         default:
             console.log('[Bramble] unknown command:', command);
