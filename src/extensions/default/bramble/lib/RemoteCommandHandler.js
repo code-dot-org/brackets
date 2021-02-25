@@ -187,15 +187,6 @@ define(function (require, exports, module) {
             skipCallback = true;
             CommandManager.execute("bramble.showUploadFiles").always(callback);
             break;
-        case "BRAMBLE_FILE_REFRESH":
-            // CDO-Bramble: This command is custom to our fork. It allows us to manually
-            // refresh the file tree. This is necessary because we manage our own
-            // "Manage Assets" modal for uploading images.
-            skipCallback = true;
-            CommandManager
-                .execute("bramble.fileRefresh")
-                .always(callback);
-            break;
         case "BRAMBLE_ADD_NEW_FILE":
             skipCallback = true;
             // Make sure we have enough room to add new files.
@@ -232,6 +223,19 @@ define(function (require, exports, module) {
             break;
         case "BRAMBLE_PROJECT_SIZE_CHANGE":
             UI.setProjectSizeInfo(args[0]);
+            break;
+        // CDO-Bramble: The remaining commands are custom to our fork.
+        case "BRAMBLE_FILE_REFRESH":
+            skipCallback = true;
+            CommandManager
+                .execute("bramble.fileRefresh")
+                .always(callback);
+            break;
+        case "BRAMBLE_ENABLE_READONLY":
+            EditorManager.setEditorReadOnly(true);
+            break;
+        case "BRAMBLE_DISABLE_READONLY":
+            EditorManager.setEditorReadOnly(false);
             break;
         default:
             console.log('[Bramble] unknown command:', command);

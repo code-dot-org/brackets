@@ -690,6 +690,14 @@ define(function (require, exports, module) {
         return !LanguageManager.getLanguageForPath(fullPath).isBinary();
     }
 
+    // CDO-Bramble: Set readOnly mode for the current editor.
+    function setEditorReadOnly(value) {
+        var currentEditor = getCurrentFullEditor();
+        if (currentEditor) {
+            currentEditor.setReadOnly(value);
+        }
+    }
+
     /**
      * Opens the specified document in the given pane
      * @param {!Document} doc - the document to open
@@ -887,6 +895,7 @@ define(function (require, exports, module) {
     exports.closeInlineWidget             = closeInlineWidget;
     exports.openDocument                  = openDocument;
     exports.canOpenPath                   = canOpenPath;
+    exports.setEditorReadOnly             = setEditorReadOnly;
 
     // Convenience Methods
     exports.getActiveEditor               = getActiveEditor;
