@@ -96,7 +96,9 @@ define(function (require, exports, module) {
 
     function add(type, args) {
         // CDO-Bramble: We do not display this panel. Return early.
-        if (!panel) return;
+        if (!panel) {
+          return;
+        }
 
         // Display the console when user code triggers console.* functions,
         // but only if the console was not already closed by the user.
@@ -120,7 +122,9 @@ define(function (require, exports, module) {
 
     function togglePanel() {
       // CDO-Bramble: We do not display this panel. Return early.
-        if (!panel) return;
+        if (!panel) {
+          return;
+        }
 
         if (panel.isVisible()) {
             hidePanel();

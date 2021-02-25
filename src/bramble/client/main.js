@@ -1181,14 +1181,14 @@ define([
      */
     BrambleProxy.prototype.enableReadOnly = function() {
         this._executeRemoteCommand({commandCategory: "bramble", command: "BRAMBLE_ENABLE_READONLY"});
-    }
+    };
 
     /**
      * CDO-Bramble: Disable readOnly mode in the current editor.
      */
     BrambleProxy.prototype.disableReadOnly = function() {
         this._executeRemoteCommand({commandCategory: "bramble", command: "BRAMBLE_DISABLE_READONLY"});
-    }
+    };
 
     return Bramble;
 });
