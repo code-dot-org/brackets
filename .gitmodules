@@ -19,6 +19,7 @@
 [submodule "src/thirdparty/filer"]
 	path = src/thirdparty/filer
 	url = https://github.com/code-dot-org/filer.git
+	branch = cdo-develop
 [submodule "src/thirdparty/marked"]
 	path = src/thirdparty/marked
 	url = https://github.com/chjj/marked.git
