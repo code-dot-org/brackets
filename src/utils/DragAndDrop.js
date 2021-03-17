@@ -318,6 +318,8 @@ define(function (require, exports, module) {
         options.elem.addEventListener("drop", codeMirrorDropHandler, true);
     }
 
+    // CDO-Bramble: No-op dragover and drop events to prevent the given element (or window by default)
+    // from being replaced by the dropped file.
     function attachNoopHandlers(options) {
         options = options || {};
         options.elem = options.elem || window.document.body;
