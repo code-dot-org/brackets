@@ -89,10 +89,10 @@ define(function (require, exports, module) {
      * CDO-Bramble: We have more strict requirements for allowed filename characters
      * than Bramble. Use an allowlist instead of a list of invalid characters.
      */
-    var _validCharsRegex = /[^0-9A-Za-z!\-_.*'()]/;
+    var _invalidCharsRegex = /[^0-9A-Za-z!\-_.*'()]/;
     var _validChars = "0-9 a-z A-Z ! - _ . * ' ( )"; // CDO-Bramble: Only for use in error messages.
     function isValidCdoFilename(filename) {
-        return !(_validCharsRegex.test(filename) || _illegalFilenamesRegEx.test(filename));
+        return !(_invalidCharsRegex.test(filename) || _illegalFilenamesRegEx.test(filename));
     }
 
     /**
