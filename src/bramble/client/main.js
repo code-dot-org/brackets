@@ -477,8 +477,10 @@ define([
                 div = document.body;
             }
 
+            // CDO-Bramble: Upstream includes an 'allow' attribute that enables geolocation, microphone, and camera access.
+            // We do not want that.
             div.innerHTML = "<iframe id='" + _id +
-                            "' frameborder='0' width='100%' height='100%' allow='geolocation *; microphone *; camera *'></iframe>";
+                            "' frameborder='0' width='100%' height='100%'></iframe>";
 
             _iframe = document.getElementById(_id);
             if (options.hideUntilReady) {

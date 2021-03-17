@@ -45,8 +45,11 @@ define(function (require, exports, module) {
             id: "bramble-iframe-browser",
             frameborder: 0
         };
+
+        // CDO-Bramble: Upstream includes an 'allow' attribute that enables geolocation, microphone, and camera access.
+        // We do not want that.
         //Append iFrame to _panel
-        $("<iframe>", iframeConfig).addClass("iframeWidthHeight").prop("allow", "geolocation *; microphone *; camera *").appendTo(_panel);
+        $("<iframe>", iframeConfig).addClass("iframeWidthHeight").appendTo(_panel);
     }
 
     /*
