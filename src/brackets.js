@@ -251,9 +251,15 @@ define(function (require, exports, module) {
         // Update title
         $("title").text(brackets.config.app_title);
 
+        /**
+         * CDO-Bramble: We do not support dragging/dropping files to upload them. However,
+         * we still need to attach no-op handlers that will prevent dropping a file onto the window
+         * from replacing the Brackets UI with that file.
+         */
         // Respond to dragging & dropping files/folders onto the window by opening them. If we don't respond
         // to these events, the file would load in place of the Brackets UI
-        DragAndDrop.attachHandlers();
+        // DragAndDrop.attachHandlers();
+        DragAndDrop.attachNoopHandlers();
 
         // TODO: (issue 269) to support IE, need to listen to document instead (and even then it may not work when focus is in an input field?)
         $(window).focus(function () {
