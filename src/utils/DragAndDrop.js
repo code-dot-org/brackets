@@ -318,6 +318,20 @@ define(function (require, exports, module) {
         options.elem.addEventListener("drop", codeMirrorDropHandler, true);
     }
 
+    // CDO-Bramble: No-op dragover and drop events to prevent the given element (or window by default)
+    // from being replaced by the dropped file.
+    function attachNoopHandlers(options) {
+        options = options || {};
+        options.elem = options.elem || window.document.body;
+
+        options.elem.addEventListener("dragover", function(e) {
+            e.preventDefault();
+        });
+        options.elem.addEventListener("drop", function(e) {
+            e.preventDefault();
+        });
+    }
+
     /**
      * Given a `source` of files (DataTransfer or FileList objects), get the associated files
      * and process them, such that they end
@@ -362,6 +376,7 @@ define(function (require, exports, module) {
     // Export public API
     exports.processFiles        = processFiles;
     exports.attachHandlers      = attachHandlers;
+    exports.attachNoopHandlers  = attachNoopHandlers;
     exports.isValidDrop         = isValidDrop;
     exports.openDroppedFiles    = openDroppedFiles;
     exports.setDropPathHint     = setDropPathHint;
