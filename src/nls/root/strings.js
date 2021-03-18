@@ -67,7 +67,7 @@ define({
     "ERROR_DELETING_FILE"               : "An error occurred when trying to delete the {2} <span class='dialog-filename'>{0}</span>. {1}",
     "INVALID_FILENAME_TITLE"            : "Invalid {0}",
     "INVALID_FILENAME_MESSAGE"          : "{0} cannot use any system reserved words, end with dots (.) or use any of the following characters: <code class='emphasized'>{1}</code>",
-    "CDO_INVALID_FILENAME_MESSAGE"      : "{0} cannot use any system reserved words, end with dots (.) or use any disallowed characters. Allowed characters: <code class='emphasized'>{1}</code>",
+    "CDO_INVALID_FILENAME_MESSAGE"      : "{0} must only use allowed characters, cannot use any system reserved words, and cannot end with dots (.). Allowed characters: <code class='emphasized'>{1}</code>",
     "ENTRY_WITH_SAME_NAME_EXISTS"       : "A file or directory with the name <span class='dialog-filename'>{0}</span> already exists.",
     "ERROR_CREATING_FILE_TITLE"         : "Error Creating {0}",
     "ERROR_CREATING_FILE"               : "An error occurred when trying to create the {0} <span class='dialog-filename'>{1}</span>. {2}",
