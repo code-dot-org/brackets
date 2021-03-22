@@ -179,7 +179,7 @@ define(function (require, exports, module) {
             if (error === FileSystemError.ALREADY_EXISTS) {
                 _showErrorDialog(ERR_TYPE_CREATE_EXISTS, isFolder, null, name);
             } else if (error === ProjectModel.ERROR_INVALID_FILENAME) {
-                _showErrorDialog(ERR_TYPE_INVALID_FILENAME, isFolder, ProjectModel._invalidChars);
+                _showErrorDialog(ERR_TYPE_INVALID_FILENAME, isFolder, ProjectModel._validChars);
             } else {
                 var errString = error === FileSystemError.NOT_WRITABLE ?
                         Strings.NO_MODIFICATION_ALLOWED_ERR :
@@ -604,7 +604,8 @@ define(function (require, exports, module) {
             break;
         case ERR_TYPE_INVALID_FILENAME:
             title = StringUtils.format(Strings[isFolder ? "INVALID_DIRNAME_TITLE" : "INVALID_FILENAME_TITLE"], isFolder ? Strings.DIRECTORY_NAME : Strings.FILENAME);
-            message = StringUtils.format(Strings[isFolder ? "INVALID_DIRNAME_MESSAGE" : "INVALID_FILENAME_MESSAGE"], isFolder ? Strings.DIRECTORY_NAMES_LEDE : Strings.FILENAMES_LEDE, error);
+            // CDO-Bramble: Use custom, English-only CDO_INVALID_FILENAME_MESSAGE string for invalid filenames.
+            message = StringUtils.format(Strings[isFolder ? "INVALID_DIRNAME_MESSAGE" : "CDO_INVALID_FILENAME_MESSAGE"], isFolder ? Strings.DIRECTORY_NAMES_LEDE : Strings.FILENAMES_LEDE, error);
             break;
         }
 
@@ -1308,7 +1309,7 @@ define(function (require, exports, module) {
 
                     switch (errorInfo.type) {
                     case ProjectModel.ERROR_INVALID_FILENAME:
-                        _showErrorDialog(ERR_TYPE_INVALID_FILENAME, errorInfo.isFolder, ProjectModel._invalidChars);
+                        _showErrorDialog(ERR_TYPE_INVALID_FILENAME, errorInfo.isFolder, ProjectModel._validChars);
                         break;
                     case FileSystemError.ALREADY_EXISTS:
                         _showErrorDialog(ERR_TYPE_RENAME, errorInfo.isFolder, Strings.FILE_EXISTS_ERR, filename);

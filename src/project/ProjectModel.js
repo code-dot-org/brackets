@@ -86,6 +86,16 @@ define(function (require, exports, module) {
     var _illegalFilenamesRegEx = /^(\.+|com[1-9]|lpt[1-9]|nul|con|prn|aux|)$|\.+$/i;
 
     /**
+     * CDO-Bramble: We have more strict requirements for allowed filename characters
+     * than Bramble. Use an allowlist instead of a list of invalid characters.
+     */
+    var _invalidCharsRegex = /[^0-9A-Za-z!\-_.*'()]/;
+    var _validChars = "0-9 a-z A-Z ! - _ . * ' ( )"; // CDO-Bramble: Only for use in error messages.
+    function isValidCdoFilename(filename) {
+        return !(_invalidCharsRegex.test(filename) || _illegalFilenamesRegEx.test(filename));
+    }
+
+    /**
      * Returns true if this matches valid filename specifications.
      *
      * TODO: This likely belongs in FileUtils.
@@ -183,7 +193,7 @@ define(function (require, exports, module) {
         var d = new $.Deferred();
 
         var name = FileUtils.getBaseName(path);
-        if (!isValidFilename(name, _invalidChars)) {
+        if (!isValidCdoFilename(name)) {
             return d.reject(ERROR_INVALID_FILENAME).promise();
         }
 
@@ -906,7 +916,7 @@ define(function (require, exports, module) {
 
         if (oldPath === newPath) {
             result.resolve();
-        } else if (!isValidFilename(FileUtils.getBaseNameDontIgnoreTrailingSlash(newName), _invalidChars)) {
+        } else if (!isValidCdoFilename(FileUtils.getBaseNameDontIgnoreTrailingSlash(newName))) {
             result.reject(ERROR_INVALID_FILENAME);
         } else {
             var entry = isFolder ? FileSystem.getDirectoryForPath(oldPath) : FileSystem.getFileForPath(oldPath);
@@ -1360,6 +1370,8 @@ define(function (require, exports, module) {
     exports._ensureTrailingSlash    = _ensureTrailingSlash;
     exports._shouldShowName         = _shouldShowName;
     exports._invalidChars           = _invalidChars;
+    // CDO-Bramble: Export _validChars for use in error messages managed by ProjectManager.
+    exports._validChars = _validChars;
 
     exports.shouldShow              = shouldShow;
     exports.defaultIgnoreGlobs      = defaultIgnoreGlobs;
