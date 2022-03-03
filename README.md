@@ -67,8 +67,8 @@ _Note: These instructions are specific to Code.org. We publish and host new vers
 
 1. Generate a new build by running `npm run build` from the root directory. This updates the `dist/` directory, which is our build output.
 2. Log in to S3 using your Code.org credentials.
-3. Go to the `downloads.computinginthecore.org` bucket.
-4. Create a new folder for our new build called `bramble_{version}`.
+3. Go to the `cdo-bramble-download` bucket.
+4. Create a folder for our new build. The name of the folder should match the new version number for Bramble.
 5. Open that new folder and upload the contents `dist/`.
 6. You now have a new version of Bramble that is publically accessible!
 7. Update the package.json file in this repository to match the new version. This is just for organization and clarity.
